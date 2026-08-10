@@ -1,0 +1,335 @@
+import CoreGraphics
+import Foundation
+import GooseCore
+
+// MARK: - Fixtures
+
+let screen = CGRect(x: 0, y: 0, width: 1440, height: 900)
+
+func makeBrain(seed: UInt64 = 42, config: GooseConfig = GooseConfig()) -> GooseBrain<SeededRandom> {
+    GooseBrain(bounds: screen, config: config, rng: SeededRandom(seed: seed))
+}
+
+@discardableResult
+func run(
+    _ brain: inout GooseBrain<SeededRandom>,
+    seconds: TimeInterval,
+    onStep: ((GooseBrain<SeededRandom>) -> Void)? = nil
+) -> [GooseEvent] {
+    let step = 1.0 / 60.0
+    var events: [GooseEvent] = []
+    var elapsed: TimeInterval = 0
+
+    while elapsed < seconds {
+        events.append(contentsOf: brain.update(deltaTime: step))
+        onStep?(brain)
+        elapsed += step
+    }
+    return events
+}
+
+/// Same as `run`, but keeps the clock alongside each event so tests can assert on
+/// how long the goose waited, not just what it did.
+func runTimed(_ brain: inout GooseBrain<SeededRandom>, seconds: TimeInterval) -> [(time: TimeInterval, event: GooseEvent)] {
+    let step = 1.0 / 60.0
+    var timeline: [(time: TimeInterval, event: GooseEvent)] = []
+    var elapsed: TimeInterval = 0
+
+    while elapsed < seconds {
+        for event in brain.update(deltaTime: step) {
+            timeline.append((elapsed, event))
+        }
+        elapsed += step
+    }
+    return timeline
+}
+
+func footprints(in events: [GooseEvent]) -> [(position: CGPoint, muddy: Bool)] {
+    events.compactMap {
+        if case let .footprint(position, muddy) = $0 { return (position, muddy) }
+        return nil
+    }
+}
+
+/// A goose that never wanders off screen, so walking can be tested in isolation.
+let neverLeaves = GooseConfig(walksBeforeExit: 10_000...10_000)
+
+// MARK: - Suite
+
+let t = TestRunner()
+print("GooseCore")
+
+t.test("starts idle and eventually walks") {
+    var brain = makeBrain(config: neverLeaves)
+    t.expectEqual(brain.state, .idle, "initial state")
+
+    let events = run(&brain, seconds: 10)
+    t.expect(!footprints(in: events).isEmpty, "expected footprints within 10 seconds")
+}
+
+t.test("footprints are never further apart than one stride") {
+    let config = GooseConfig(stepDistance: 36, walksBeforeExit: 10_000...10_000)
+    var brain = makeBrain(config: config)
+    let positions = footprints(in: run(&brain, seconds: 20)).map(\.position)
+
+    t.expect(positions.count > 5, "need several footprints to measure spacing, got \(positions.count)")
+    for (a, b) in zip(positions, positions.dropFirst()) {
+        let gap = hypot(b.x - a.x, b.y - a.y)
+        t.expect(gap <= config.stepDistance + 1, "stride of \(gap) exceeds \(config.stepDistance)")
+    }
+}
+
+t.test("a walking goose stays on screen") {
+    var brain = makeBrain(config: neverLeaves)
+    let tolerated = screen.insetBy(dx: -1, dy: -1)
+
+    run(&brain, seconds: 30) { brain in
+        guard brain.state == .walking else { return }
+        t.expect(tolerated.contains(brain.position), "walked off screen to \(brain.position)")
+    }
+}
+
+t.test("a goose that never left tracks no mud") {
+    var brain = makeBrain(config: neverLeaves)
+    let prints = footprints(in: run(&brain, seconds: 30))
+
+    t.expect(!prints.isEmpty, "expected footprints")
+    t.expect(prints.allSatisfy { !$0.muddy }, "clean feet should stay clean")
+}
+
+t.test("comes back muddy after going off screen") {
+    let config = GooseConfig(muddyStepCount: 10, walksBeforeExit: 1...1)
+    var brain = makeBrain(config: config)
+    let events = run(&brain, seconds: 60)
+
+    guard let returned = events.firstIndex(of: .visibilityChanged(isVisible: true)) else {
+        return t.fail("the goose never came back")
+    }
+
+    let afterReturn = footprints(in: Array(events[(returned + 1)...]))
+    t.expect(afterReturn.count >= config.muddyStepCount, "expected at least \(config.muddyStepCount) prints after returning")
+    t.expect(afterReturn.prefix(config.muddyStepCount).allSatisfy(\.muddy),
+             "the first \(config.muddyStepCount) prints after returning should be muddy")
+}
+
+t.test("mud wears off after the configured number of steps") {
+    let config = GooseConfig(muddyStepCount: 10, walksBeforeExit: 1...1)
+    var brain = makeBrain(config: config)
+    let events = run(&brain, seconds: 60)
+
+    guard let returned = events.firstIndex(of: .visibilityChanged(isVisible: true)) else {
+        return t.fail("the goose never came back")
+    }
+
+    // Only this visit counts; a later trip outside would refill the mud.
+    let rest = Array(events[(returned + 1)...])
+    let nextExit = rest.firstIndex(of: .visibilityChanged(isVisible: false)) ?? rest.endIndex
+    let visit = footprints(in: Array(rest[..<nextExit]))
+
+    t.expectEqual(visit.filter(\.muddy).count, config.muddyStepCount, "muddy prints in one visit")
+    t.expect(!(visit.last?.muddy ?? true), "mud should run out before the visit ends")
+}
+
+t.test("visibility alternates: out, then back") {
+    var brain = makeBrain(config: GooseConfig(walksBeforeExit: 1...1))
+    let events = run(&brain, seconds: 60)
+
+    let visibility = events.compactMap { event -> Bool? in
+        if case let .visibilityChanged(isVisible) = event { return isVisible }
+        return nil
+    }
+
+    t.expect(visibility.count >= 2, "expected a full trip out and back, got \(visibility.count) changes")
+    t.expectEqual(visibility.first ?? true, false, "first visibility change")
+    for (a, b) in zip(visibility, visibility.dropFirst()) {
+        t.expect(a != b, "visibility events must alternate")
+    }
+}
+
+// MARK: - Standing still for a meme
+
+t.test("the goose reports when it sets off again") {
+    var brain = makeBrain(config: neverLeaves)
+    let events = run(&brain, seconds: 20)
+
+    t.expect(events.contains(.startedMoving), "expected at least one startedMoving")
+}
+
+t.test("dropping a meme keeps the goose still long enough to read it") {
+    let pause: TimeInterval = 4
+    let config = GooseConfig(
+        memePauseDuration: pause...pause,
+        walksBeforeExit: 10_000...10_000,
+        memeChance: 1
+    )
+    var brain = makeBrain(config: config)
+    let timeline = runTimed(&brain, seconds: 40)
+
+    guard let drop = timeline.firstIndex(where: {
+        if case .droppedMeme = $0.event { return true }
+        return false
+    }) else {
+        return t.fail("the goose never dropped a meme")
+    }
+
+    guard let departure = timeline[(drop + 1)...].first(where: { $0.event == .startedMoving }) else {
+        return t.fail("the goose never set off again")
+    }
+
+    let waited = departure.time - timeline[drop].time
+    // A frame of slack: the timer is only checked on frame boundaries.
+    t.expect(waited >= pause - 1.0 / 60.0, "expected a pause of \(pause)s, waited \(waited)s")
+}
+
+/// Measures the longest unbroken stretch the goose spends standing still.
+///
+/// The gap between two departures is no good for this: it contains a whole walk,
+/// which can take ten seconds to cross the screen.
+func longestIdle(_ brain: inout GooseBrain<SeededRandom>, seconds: TimeInterval) -> TimeInterval {
+    let step = 1.0 / 60.0
+    var current: TimeInterval = 0
+    var longest: TimeInterval = 0
+    var elapsed: TimeInterval = 0
+
+    while elapsed < seconds {
+        _ = brain.update(deltaTime: step)
+        current = brain.state == .idle ? current + step : 0
+        longest = max(longest, current)
+        elapsed += step
+    }
+    return longest
+}
+
+t.test("an ordinary idle stays short") {
+    let config = GooseConfig(
+        idleDuration: 0.5...0.5,
+        memePauseDuration: 4...4,
+        walksBeforeExit: 10_000...10_000,
+        memeChance: 0
+    )
+    var brain = makeBrain(config: config)
+    let idle = longestIdle(&brain, seconds: 30)
+
+    t.expect(idle > 0, "the goose never stood still at all")
+    t.expect(idle < 1, "a 0.5s idle stretched to \(idle)s")
+}
+
+t.test("a meme pause is far longer than an idle") {
+    let config = GooseConfig(
+        idleDuration: 0.5...0.5,
+        memePauseDuration: 4...4,
+        walksBeforeExit: 10_000...10_000,
+        memeChance: 1
+    )
+    var brain = makeBrain(config: config)
+    let idle = longestIdle(&brain, seconds: 30)
+
+    t.expect(idle >= 4, "expected a 4s pause, longest stop was \(idle)s")
+}
+
+// MARK: - Determinism
+
+t.test("the same seed replays the same goose") {
+    var first = makeBrain(seed: 7)
+    var second = makeBrain(seed: 7)
+
+    t.expect(run(&first, seconds: 45) == run(&second, seconds: 45), "identical seeds diverged")
+}
+
+t.test("different seeds produce different geese") {
+    var first = makeBrain(seed: 7)
+    var second = makeBrain(seed: 8)
+
+    t.expect(run(&first, seconds: 45) != run(&second, seconds: 45), "different seeds produced identical runs")
+}
+
+// MARK: - Animation
+
+let walkClip = AnimationClip(name: "walk", frames: [0, 1, 2, 3], framesPerSecond: 10)
+let blinkClip = AnimationClip(name: "blink", frames: [8, 9], framesPerSecond: 10, loops: false)
+
+t.test("a clip advances one frame per tick") {
+    var player = AnimationPlayer(clip: walkClip)
+    t.expectEqual(player.frame, 0, "first frame")
+
+    player.advance(by: 0.1)
+    t.expectEqual(player.frame, 1, "after one frame duration")
+
+    player.advance(by: 0.2)
+    t.expectEqual(player.frame, 3, "after three frame durations")
+}
+
+t.test("a looping clip wraps around") {
+    var player = AnimationPlayer(clip: walkClip)
+    player.advance(by: 0.4) // exactly one full cycle
+
+    t.expectEqual(player.frame, 0, "wrapped frame")
+    t.expect(!player.isFinished, "a looping clip never finishes")
+}
+
+t.test("a non-looping clip holds its last frame") {
+    var player = AnimationPlayer(clip: blinkClip)
+    player.advance(by: 5)
+
+    t.expectEqual(player.frame, 9, "held frame")
+    t.expect(player.isFinished, "expected the clip to report finished")
+}
+
+t.test("switching clips restarts the animation") {
+    var player = AnimationPlayer(clip: walkClip)
+    player.advance(by: 0.2)
+    t.expectEqual(player.frame, 2, "mid-walk frame")
+
+    player.play(blinkClip)
+    t.expectEqual(player.frame, 8, "first frame of the new clip")
+}
+
+t.test("re-playing the running clip does not restart it") {
+    var player = AnimationPlayer(clip: walkClip)
+    player.advance(by: 0.2)
+    player.play(walkClip)
+
+    t.expectEqual(player.frame, 2, "frame after a redundant play()")
+}
+
+t.test("a clip with no frame rate stays on its first frame") {
+    var player = AnimationPlayer(clip: AnimationClip(name: "still", frames: [5], framesPerSecond: 0))
+    player.advance(by: 10)
+
+    t.expectEqual(player.frame, 5, "static frame")
+}
+
+// MARK: - Sprite sheet manifest
+
+t.test("a manifest fills in the fields it omits") {
+    let json = #"{"frameWidth": 48, "frameHeight": 64, "clips": [{"name": "walk", "frames": [0, 1]}]}"#
+
+    guard let manifest = try? JSONDecoder().decode(SpriteSheetManifest.self, from: Data(json.utf8)) else {
+        return t.fail("a minimal hand-written manifest should decode")
+    }
+
+    t.expectEqual(manifest.image, "goose.png", "default image name")
+    t.expectEqual(manifest.scale, 1, "default scale")
+    t.expectEqual(manifest.columns, 1, "default columns")
+    t.expectEqual(manifest.anchorX, 24, "anchor defaults to the frame's horizontal centre")
+    t.expectEqual(manifest.clips.first?.framesPerSecond ?? 0, 12, "default frame rate")
+    t.expect(!manifest.pixelArt, "smoothing should be on unless the sheet says pixel art")
+}
+
+t.test("a manifest converts pixels to points using its scale") {
+    let manifest = SpriteSheetManifest(
+        image: "goose.png",
+        frameWidth: 240,
+        frameHeight: 232,
+        columns: 6,
+        scale: 2,
+        anchorX: 104,
+        anchorY: 10,
+        clips: [walkClip]
+    )
+
+    t.expectEqual(manifest.frameSize.width, 120, "frame width in points")
+    t.expectEqual(manifest.anchor.x, 52, "anchor x in points")
+}
+
+t.finish()

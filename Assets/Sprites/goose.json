@@ -1,0 +1,36 @@
+{
+  "anchorX" : 18,
+  "anchorY" : 2,
+  "clips" : [
+    {
+      "frames" : [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "framesPerSecond" : 10,
+      "loops" : true,
+      "name" : "walk"
+    },
+    {
+      "frames" : [
+        8,
+        9
+      ],
+      "framesPerSecond" : 2,
+      "loops" : true,
+      "name" : "idle"
+    }
+  ],
+  "columns" : 5,
+  "frameHeight" : 38,
+  "frameWidth" : 42,
+  "image" : "goose.png",
+  "pixelArt" : true,
+  "scale" : 0.6666666666666666
+}
