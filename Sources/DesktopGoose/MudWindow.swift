@@ -81,13 +81,6 @@ final class MudView: NSView {
         startPruning()
     }
 
-    func clear() {
-        guard !footprints.isEmpty else { return }
-        footprints.removeAll()
-        stopPruning()
-        needsDisplay = true
-    }
-
     // MARK: - Expiry
 
     /// Wakes a couple of times a second while prints exist to drop the ones past
