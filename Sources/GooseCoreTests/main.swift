@@ -361,6 +361,25 @@ t.test("a reminder can be requested on demand") {
     t.expectEqual(first.kind, ReminderKind.move, "the delivered reminder should be the requested one")
 }
 
+t.test("the goose faces backward while dragging a reminder in") {
+    let config = GooseConfig(walksBeforeExit: 10_000...10_000, waterInterval: 2, moveInterval: 10_000)
+    var brain = makeBrain(config: config)
+
+    var sawEntry = false
+    var sawBackward = false
+    run(&brain, seconds: 30) { brain in
+        guard brain.state == .deliveringEntry else { return }
+        sawEntry = true
+        // Moving toward the centre; dx > 0 means moving right. Facing left while
+        // moving right (and vice versa) is the backward drag.
+        let dx = screen.midX - brain.position.x
+        if abs(dx) > 2, brain.facingLeft == (dx > 0) { sawBackward = true }
+    }
+
+    t.expect(sawEntry, "the goose never entered the dragging state")
+    t.expect(sawBackward, "the goose never faced backward while dragging")
+}
+
 t.test("the goose no longer drops memes at random") {
     var brain = makeBrain(config: neverLeaves)
     let events = run(&brain, seconds: 30)

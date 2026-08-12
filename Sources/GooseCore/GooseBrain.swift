@@ -12,6 +12,9 @@ public struct GooseBrain<RNG: RandomNumberGenerator> {
     public private(set) var isVisible: Bool = true
     public private(set) var facingLeft: Bool = false
     public private(set) var muddyStepsRemaining: Int = 0
+    /// While dragging a reminder in, which side the meme trails on — the edge the
+    /// goose came from. Only meaningful during `.deliveringEntry`/`.presenting`.
+    public private(set) var dragFromLeft: Bool = false
 
     /// The area the goose considers "the screen". Update it when the screen resizes.
     public var bounds: CGRect
@@ -24,6 +27,9 @@ public struct GooseBrain<RNG: RandomNumberGenerator> {
     private var walksRemaining: Int = 0
     /// Multiplies `config.speed` for the current move. Dashes set it above 1.
     private var speedMultiplier: CGFloat = 1
+    /// When true the goose faces against its motion — walking backward to drag a
+    /// meme, rather than facing where it is going.
+    private var facesBackward = false
     /// Desk time left until each reminder is due. Counts down every frame.
     private var waterTimer: TimeInterval
     private var moveTimer: TimeInterval
@@ -149,7 +155,9 @@ public struct GooseBrain<RNG: RandomNumberGenerator> {
 
     private mutating func move(dx: CGFloat, dy: CGFloat, events: inout [GooseEvent]) {
         guard dx != 0 || dy != 0 else { return }
-        if abs(dx) > 0.01 { facingLeft = dx < 0 }
+        // Backward-dragging flips the facing: the goose looks toward the meme it
+        // hauls, which is on the side it is moving away from.
+        if abs(dx) > 0.01 { facingLeft = facesBackward ? dx > 0 : dx < 0 }
 
         let travelled = (dx * dx + dy * dy).squareRoot()
         let start = position
@@ -251,12 +259,14 @@ public struct GooseBrain<RNG: RandomNumberGenerator> {
         // you can read. A stroll is just a dash with a multiplier of 1.
         let dashing = Double.random(in: 0...1, using: &rng) < config.dashChance
         speedMultiplier = dashing ? config.dashSpeedMultiplier : 1
+        facesBackward = false
         state = .walking
     }
 
     private mutating func beginExit() {
         target = exteriorPoint()
         speedMultiplier = 1
+        facesBackward = false
         state = .leaving
     }
 
@@ -265,6 +275,7 @@ public struct GooseBrain<RNG: RandomNumberGenerator> {
     private mutating func beginDeliveryExit() {
         target = exteriorPoint()
         speedMultiplier = 1
+        facesBackward = false
         muddyStepsRemaining = 0
         state = .deliveringExit
     }
@@ -278,7 +289,11 @@ public struct GooseBrain<RNG: RandomNumberGenerator> {
         position = CGPoint(x: startX, y: bounds.midY)
         target = CGPoint(x: bounds.midX, y: bounds.midY)
         distanceSinceStep = 0
-        speedMultiplier = 1
+        // Haul it in slowly — a deliberate trudge, not a sprint.
+        speedMultiplier = config.dragSpeedMultiplier
+        // Drag it in backward, meme trailing on the edge it came from.
+        dragFromLeft = fromLeft
+        facesBackward = true
         state = .deliveringEntry
     }
 
@@ -298,6 +313,7 @@ public struct GooseBrain<RNG: RandomNumberGenerator> {
         distanceSinceStep = 0
         isVisible = true
         speedMultiplier = 1
+        facesBackward = false
         state = .returning
         events.append(.visibilityChanged(isVisible: true))
 

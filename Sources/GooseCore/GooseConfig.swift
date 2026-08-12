@@ -46,6 +46,9 @@ public struct GooseConfig: Sendable {
     public var moveInterval: TimeInterval
     /// How long the goose stands at the centre with a reminder on screen.
     public var reminderHoldDuration: ClosedRange<TimeInterval>
+    /// Speed multiplier while dragging a meme in — below 1 so the haul is a slow,
+    /// deliberate trudge instead of a normal walk.
+    public var dragSpeedMultiplier: CGFloat
 
     public init(
         speed: CGFloat = 150,
@@ -66,7 +69,8 @@ public struct GooseConfig: Sendable {
         ponderDuration: ClosedRange<TimeInterval> = 3.0...6.0,
         waterInterval: TimeInterval = 45 * 60,
         moveInterval: TimeInterval = 30 * 60,
-        reminderHoldDuration: ClosedRange<TimeInterval> = 5.0...7.0
+        reminderHoldDuration: ClosedRange<TimeInterval> = 5.0...7.0,
+        dragSpeedMultiplier: CGFloat = 0.45
     ) {
         self.speed = speed
         self.stepDistance = stepDistance
@@ -87,5 +91,6 @@ public struct GooseConfig: Sendable {
         self.waterInterval = waterInterval
         self.moveInterval = moveInterval
         self.reminderHoldDuration = reminderHoldDuration
+        self.dragSpeedMultiplier = dragSpeedMultiplier
     }
 }

@@ -34,6 +34,10 @@ enum Assets {
         memeURLs().randomElement().flatMap { NSImage(contentsOf: $0) }
     }
 
+    static func randomMemeURL() -> URL? {
+        memeURLs().randomElement()
+    }
+
     private static func files(in subdirectory: String, extensions: [String]) -> [URL] {
         guard let directory = directory?.appendingPathComponent(subdirectory, isDirectory: true),
               let contents = try? FileManager.default.contentsOfDirectory(

@@ -13,10 +13,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Bottom-left of the screen the goose lives on, in global desktop coordinates.
     private var screenOrigin: CGPoint = .zero
     private var openMemes: [MemeWindow] = []
+    /// Meme windows dragged in and left open on screen; the user closes them.
+    private var memeImages: [MemeImageWindow] = []
+    /// The meme currently being dragged in during a delivery, if any.
+    private var draggingMeme: MemeImageWindow?
     private let sounds = SoundBank()
     /// Kept so speech bubbles can match the goose's medium and clear its head.
     private var artStyle: ArtStyle?
     private var gooseHeight: CGFloat = 0
+    /// Half the goose's on-screen width, so a dragged meme can clear its side.
+    private var gooseHalfWidth: CGFloat = 0
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         guard let screen = NSScreen.main ?? NSScreen.screens.first else { return }
@@ -38,6 +44,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         artStyle = ArtStyle(artwork: artwork)
         gooseHeight = artwork.frameSize.height - artwork.anchor.y
+        gooseHalfWidth = max(artwork.anchor.x, artwork.frameSize.width - artwork.anchor.x)
 
         // Two windows, deliberately. The mud is screen-sized but almost never
         // repaints; the goose repaints often but is the size of one frame.
@@ -96,6 +103,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             state: brain.state,
             deltaTime: deltaTime
         )
+
+        updateCarriedMeme(
+            state: brain.state,
+            feet: screenPoint(from: brain.position),
+            onLeft: brain.dragFromLeft
+        )
+    }
+
+    /// Opens a meme window when a delivery starts dragging one in and keeps it
+    /// beside the goose. When the delivery ends it lets go but leaves the window
+    /// open — closing it is the user's call.
+    private func updateCarriedMeme(state: GooseState, feet: CGPoint, onLeft: Bool) {
+        let carrying = state == .deliveringEntry || state == .presenting
+        guard carrying else {
+            draggingMeme = nil
+            return
+        }
+
+        if draggingMeme == nil {
+            // No meme in the bank? The goose still delivers the message, just
+            // empty-handed.
+            guard let url = Assets.randomMemeURL(), let image = NSImage(contentsOf: url) else { return }
+            let window = MemeImageWindow(image: image, title: url.lastPathComponent) { [weak self] closed in
+                self?.memeImages.removeAll { $0 === closed }
+            }
+            window.orderFrontRegardless()
+            memeImages.append(window)
+            draggingMeme = window
+        }
+
+        draggingMeme?.place(besideFeet: feet, onLeft: onLeft, gooseHalfWidth: gooseHalfWidth, gap: 12)
     }
 
     private func handle(_ event: GooseEvent, facingLeft: Bool) {
@@ -202,6 +240,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func dismissMemes() {
         for meme in openMemes { meme.close() }
         openMemes.removeAll()
+        for image in memeImages { image.close() }
+        memeImages.removeAll()
+        draggingMeme = nil
     }
 
     @objc private func quit() {
