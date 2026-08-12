@@ -12,7 +12,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var lastTick: CFTimeInterval = 0
     /// Bottom-left of the screen the goose lives on, in global desktop coordinates.
     private var screenOrigin: CGPoint = .zero
-    private var openMemes: [MemeWindow] = []
+    /// Reminder message bubbles currently on screen; they leave with the goose.
+    private var openBubbles: [MessageBubble] = []
     /// Meme windows dragged in and left open on screen; the user closes them.
     private var memeImages: [MemeImageWindow] = []
     /// The meme currently being dragged in during a delivery, if any.
@@ -145,16 +146,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case .honk:
             sounds.honk()
 
-        case let .droppedMeme(position):
-            dropMeme(at: position)
-
         case let .showReminder(kind, position):
             presentReminder(kind: kind, at: position)
 
         case .startedMoving:
-            // The goose walks off, the bubble goes with it. Leaving it hanging over
-            // an empty patch of desktop is what makes these things feel like litter.
-            dismissMemes()
+            // The goose walks off, its message bubble goes with it. The dragged meme
+            // window stays put — closing that one is the user's call.
+            dismissBubbles()
 
         case .visibilityChanged:
             // The brain now decides whether a return is worth a honk and emits it
@@ -167,41 +165,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         CGPoint(x: screenOrigin.x + local.x, y: screenOrigin.y + local.y)
     }
 
-    private func dropMeme(at localPoint: CGPoint) {
-        guard let artStyle else { return }
-
-        // With no meme to show, the bubble speaks a "honk!" line instead — so the
-        // sound always rides along with that dialog. A real meme stays silent;
-        // only the honk talks.
-        let image = Assets.randomMeme()
-        if image == nil { sounds.honk() }
-
-        let meme = MemeWindow(
-            image: image,
-            style: artStyle,
-            gooseFeet: screenPoint(from: localPoint),
-            gooseHeight: gooseHeight
-        )
-        meme.present { [weak self] closed in
-            self?.openMemes.removeAll { $0 === closed }
-        }
-        openMemes.append(meme)
-    }
-
     private func presentReminder(kind: ReminderKind, at localPoint: CGPoint) {
         guard let artStyle else { return }
 
-        let bubble = MemeWindow(
-            image: nil,
+        let bubble = MessageBubble(
             message: ReminderMessages.attributed(for: kind),
             style: artStyle,
             gooseFeet: screenPoint(from: localPoint),
             gooseHeight: gooseHeight
         )
         bubble.present { [weak self] closed in
-            self?.openMemes.removeAll { $0 === closed }
+            self?.openBubbles.removeAll { $0 === closed }
         }
-        openMemes.append(bubble)
+        openBubbles.append(bubble)
         sounds.honk()
     }
 
@@ -237,9 +213,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         mudWindow?.mudView.clear()
     }
 
+    /// Closes only the message bubbles — used when the goose sets off, so the meme
+    /// windows it left open are untouched.
+    private func dismissBubbles() {
+        for bubble in openBubbles { bubble.close() }
+        openBubbles.removeAll()
+    }
+
     @objc private func dismissMemes() {
-        for meme in openMemes { meme.close() }
-        openMemes.removeAll()
+        dismissBubbles()
         for image in memeImages { image.close() }
         memeImages.removeAll()
         draggingMeme = nil

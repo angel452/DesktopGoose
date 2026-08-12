@@ -37,8 +37,6 @@ public enum GooseEvent: Equatable, Sendable {
     case footprint(position: CGPoint, muddy: Bool)
     /// Honk.
     case honk
-    /// The goose dropped a meme at this position.
-    case droppedMeme(position: CGPoint)
     /// The goose arrived at the centre with a reminder to show at `position`.
     case showReminder(kind: ReminderKind, position: CGPoint)
     /// The goose stopped standing around and set off again. Anything that was only

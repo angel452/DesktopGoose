@@ -37,10 +37,6 @@ public enum SpeechBubble {
         ])
     }
 
-    /// What the goose says when `Assets/Memes` is empty. Both measured and drawn
-    /// from this, so it is built once.
-    public static func placeholderText() -> NSAttributedString { text("honk!") }
-
     /// Total window size needed to wrap `contentSize`, tail included.
     public static func size(forContent contentSize: CGSize, style: ArtStyle) -> CGSize {
         let inset = style.pixels(border + padding) * 2

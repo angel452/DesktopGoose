@@ -146,39 +146,13 @@ t.test("visibility alternates: out, then back") {
     }
 }
 
-// MARK: - Standing still for a meme
+// MARK: - Idling
 
 t.test("the goose reports when it sets off again") {
     var brain = makeBrain(config: neverLeaves)
     let events = run(&brain, seconds: 20)
 
     t.expect(events.contains(.startedMoving), "expected at least one startedMoving")
-}
-
-t.test("dropping a meme keeps the goose still long enough to read it") {
-    let pause: TimeInterval = 4
-    let config = GooseConfig(
-        memePauseDuration: pause...pause,
-        walksBeforeExit: 10_000...10_000,
-        memeChance: 1
-    )
-    var brain = makeBrain(config: config)
-    let timeline = runTimed(&brain, seconds: 40)
-
-    guard let drop = timeline.firstIndex(where: {
-        if case .droppedMeme = $0.event { return true }
-        return false
-    }) else {
-        return t.fail("the goose never dropped a meme")
-    }
-
-    guard let departure = timeline[(drop + 1)...].first(where: { $0.event == .startedMoving }) else {
-        return t.fail("the goose never set off again")
-    }
-
-    let waited = departure.time - timeline[drop].time
-    // A frame of slack: the timer is only checked on frame boundaries.
-    t.expect(waited >= pause - 1.0 / 60.0, "expected a pause of \(pause)s, waited \(waited)s")
 }
 
 /// Measures the longest unbroken stretch the goose spends standing still.
@@ -203,9 +177,7 @@ func longestIdle(_ brain: inout GooseBrain<SeededRandom>, seconds: TimeInterval)
 t.test("an ordinary idle stays short") {
     let config = GooseConfig(
         idleDuration: 0.5...0.5,
-        memePauseDuration: 4...4,
         walksBeforeExit: 10_000...10_000,
-        memeChance: 0,
         ponderChance: 0
     )
     var brain = makeBrain(config: config)
@@ -213,20 +185,6 @@ t.test("an ordinary idle stays short") {
 
     t.expect(idle > 0, "the goose never stood still at all")
     t.expect(idle < 1, "a 0.5s idle stretched to \(idle)s")
-}
-
-t.test("a meme pause is far longer than an idle") {
-    let config = GooseConfig(
-        idleDuration: 0.5...0.5,
-        memePauseDuration: 4...4,
-        walksBeforeExit: 10_000...10_000,
-        memeChance: 1,
-        ponderChance: 0
-    )
-    var brain = makeBrain(config: config)
-    let idle = longestIdle(&brain, seconds: 30)
-
-    t.expect(idle >= 4, "expected a 4s pause, longest stop was \(idle)s")
 }
 
 // MARK: - Variety
@@ -237,14 +195,12 @@ t.test("a dash covers more ground than a stroll") {
     let stroll = GooseConfig(
         idleDuration: 0.4...0.4,
         walksBeforeExit: 10_000...10_000,
-        memeChance: 0,
         dashChance: 0,
         ponderChance: 0
     )
     let sprint = GooseConfig(
         idleDuration: 0.4...0.4,
         walksBeforeExit: 10_000...10_000,
-        memeChance: 0,
         dashChance: 1,
         ponderChance: 0
     )
@@ -257,7 +213,7 @@ t.test("a dash covers more ground than a stroll") {
 }
 
 t.test("a clean return leaves no mud") {
-    let config = GooseConfig(walksBeforeExit: 1...1, memeChance: 0, muddyReturnChance: 0)
+    let config = GooseConfig(walksBeforeExit: 1...1, muddyReturnChance: 0)
     var brain = makeBrain(config: config)
     let prints = footprints(in: run(&brain, seconds: 60))
 
@@ -266,7 +222,7 @@ t.test("a clean return leaves no mud") {
 }
 
 t.test("a return honk fires when it is certain") {
-    let config = GooseConfig(walksBeforeExit: 1...1, honkChance: 0, memeChance: 0, returnHonkChance: 1)
+    let config = GooseConfig(walksBeforeExit: 1...1, honkChance: 0, returnHonkChance: 1)
     var brain = makeBrain(config: config)
     let events = run(&brain, seconds: 30)
 
@@ -275,7 +231,7 @@ t.test("a return honk fires when it is certain") {
 }
 
 t.test("a silent return stays silent") {
-    let config = GooseConfig(walksBeforeExit: 1...1, honkChance: 0, memeChance: 0, returnHonkChance: 0)
+    let config = GooseConfig(walksBeforeExit: 1...1, honkChance: 0, returnHonkChance: 0)
     var brain = makeBrain(config: config)
     let events = run(&brain, seconds: 30)
 
@@ -288,7 +244,6 @@ t.test("a ponder stands still far longer than an ordinary idle") {
         idleDuration: 0.5...0.5,
         walksBeforeExit: 10_000...10_000,
         honkChance: 0,
-        memeChance: 0,
         ponderChance: 1,
         ponderDuration: 4...4
     )
@@ -378,17 +333,6 @@ t.test("the goose faces backward while dragging a reminder in") {
 
     t.expect(sawEntry, "the goose never entered the dragging state")
     t.expect(sawBackward, "the goose never faced backward while dragging")
-}
-
-t.test("the goose no longer drops memes at random") {
-    var brain = makeBrain(config: neverLeaves)
-    let events = run(&brain, seconds: 30)
-
-    let droppedMeme = events.contains {
-        if case .droppedMeme = $0 { return true }
-        return false
-    }
-    t.expect(!droppedMeme, "the random meme drop should be gone by default")
 }
 
 // MARK: - Determinism

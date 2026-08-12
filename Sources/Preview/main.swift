@@ -120,7 +120,7 @@ func drawScene() throws {
         let feet = CGPoint(x: 170, y: 36)
         let gooseHeight = artwork.frameSize.height - artwork.anchor.y
 
-        let text = SpeechBubble.placeholderText()
+        let text = SpeechBubble.text("honk!")
         let content = CGSize(width: ceil(text.size().width), height: ceil(text.size().height))
         let bubbleSize = SpeechBubble.size(forContent: content, style: style)
         let bubble = NSRect(

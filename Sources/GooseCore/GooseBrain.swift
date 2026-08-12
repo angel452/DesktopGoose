@@ -198,19 +198,8 @@ public struct GooseBrain<RNG: RandomNumberGenerator> {
                 events.append(.honk)
             }
 
-            let droppedMeme = Double.random(in: 0...1, using: &rng) < config.memeChance
-            if droppedMeme {
-                events.append(.droppedMeme(position: position))
-            }
-
             walksRemaining -= 1
-
-            if droppedMeme {
-                // Stand and wait by the delivery. Wandering off immediately would
-                // pull the speech bubble away before it could be read.
-                let pause = TimeInterval.random(in: config.memePauseDuration, using: &rng)
-                beginIdle(duration: pause)
-            } else if walksRemaining <= 0 {
+            if walksRemaining <= 0 {
                 beginExit()
             } else {
                 beginIdle()

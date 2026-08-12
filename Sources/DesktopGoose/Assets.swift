@@ -30,10 +30,6 @@ enum Assets {
         files(in: "Memes", extensions: ["png", "jpg", "jpeg", "gif", "heic", "webp"])
     }
 
-    static func randomMeme() -> NSImage? {
-        memeURLs().randomElement().flatMap { NSImage(contentsOf: $0) }
-    }
-
     static func randomMemeURL() -> URL? {
         memeURLs().randomElement()
     }

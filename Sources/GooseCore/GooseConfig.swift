@@ -12,18 +12,12 @@ public struct GooseConfig: Sendable {
     public var muddyStepCount: Int
     /// How long the goose stands still between walks.
     public var idleDuration: ClosedRange<TimeInterval>
-    /// How long it stands admiring a meme it just delivered. Longer than a normal
-    /// idle, so the thing it brought can actually be read.
-    public var memePauseDuration: ClosedRange<TimeInterval>
     /// How long the goose stays out of sight.
     public var offscreenDuration: ClosedRange<TimeInterval>
     /// How many walks it completes before wandering off screen again.
     public var walksBeforeExit: ClosedRange<Int>
     /// Probability of honking at the end of a walk.
     public var honkChance: Double
-    /// Probability of dropping a meme at the end of a walk. Defaults to 0: memes now
-    /// arrive through scheduled reminders, not at random.
-    public var memeChance: Double
     /// Keeps walk targets away from the very edge of the screen.
     public var margin: CGFloat
     /// Probability a return trip brings mud back on the feet. Below 1 so the goose
@@ -55,11 +49,9 @@ public struct GooseConfig: Sendable {
         stepDistance: CGFloat = 36,
         muddyStepCount: Int = 24,
         idleDuration: ClosedRange<TimeInterval> = 0.4...3.5,
-        memePauseDuration: ClosedRange<TimeInterval> = 4.0...6.0,
         offscreenDuration: ClosedRange<TimeInterval> = 1.5...7.0,
         walksBeforeExit: ClosedRange<Int> = 2...9,
         honkChance: Double = 0.25,
-        memeChance: Double = 0,
         margin: CGFloat = 60,
         muddyReturnChance: Double = 0.7,
         returnHonkChance: Double = 0.6,
@@ -76,11 +68,9 @@ public struct GooseConfig: Sendable {
         self.stepDistance = stepDistance
         self.muddyStepCount = muddyStepCount
         self.idleDuration = idleDuration
-        self.memePauseDuration = memePauseDuration
         self.offscreenDuration = offscreenDuration
         self.walksBeforeExit = walksBeforeExit
         self.honkChance = honkChance
-        self.memeChance = memeChance
         self.margin = margin
         self.muddyReturnChance = muddyReturnChance
         self.returnHonkChance = returnHonkChance
