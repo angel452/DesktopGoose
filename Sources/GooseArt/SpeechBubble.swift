@@ -23,21 +23,23 @@ public enum SpeechBubble {
     private static let fill = NSColor.white
     private static let ink = NSColor(calibratedWhite: 0.11, alpha: 1)
 
-    /// What the goose says when `Assets/Memes` is empty.
-    ///
-    /// Built here, once, because the bubble is both measured and drawn from it. Two
-    /// copies of a string plus a font is two places that must agree about width,
-    /// and they will stop agreeing the first time the font size changes.
-    public static func placeholderText() -> NSAttributedString {
+    /// A line styled to match the bubble — heavy, centred, ink on white. Anything
+    /// drawn inside a bubble should go through here so the typography lives in one
+    /// place; a second copy stops agreeing the first time the font changes.
+    public static func text(_ string: String) -> NSAttributedString {
         let paragraph = NSMutableParagraphStyle()
         paragraph.alignment = .center
 
-        return NSAttributedString(string: "honk!", attributes: [
+        return NSAttributedString(string: string, attributes: [
             .font: NSFont.systemFont(ofSize: 15, weight: .heavy),
             .foregroundColor: ink,
             .paragraphStyle: paragraph,
         ])
     }
+
+    /// What the goose says when `Assets/Memes` is empty. Both measured and drawn
+    /// from this, so it is built once.
+    public static func placeholderText() -> NSAttributedString { text("honk!") }
 
     /// Total window size needed to wrap `contentSize`, tail included.
     public static func size(forContent contentSize: CGSize, style: ArtStyle) -> CGSize {

@@ -13,6 +13,20 @@ public enum GooseState: Equatable, Sendable {
     case offscreen
     /// Walking back in from the edge, feet dirty.
     case returning
+    /// Heading off screen to fetch a reminder, interrupting the wander.
+    case deliveringExit
+    /// Walking in from a side edge toward the centre, reminder in tow.
+    case deliveringEntry
+    /// Standing at the centre while the reminder is on screen.
+    case presenting
+}
+
+/// The kind of health nudge a delivery carries.
+public enum ReminderKind: Equatable, Sendable {
+    /// Time to drink some water.
+    case water
+    /// Time to stand up and move.
+    case move
 }
 
 /// Something the goose did that the outside world has to react to.
@@ -25,6 +39,8 @@ public enum GooseEvent: Equatable, Sendable {
     case honk
     /// The goose dropped a meme at this position.
     case droppedMeme(position: CGPoint)
+    /// The goose arrived at the centre with a reminder to show at `position`.
+    case showReminder(kind: ReminderKind, position: CGPoint)
     /// The goose stopped standing around and set off again. Anything that was only
     /// true while it stood still — a speech bubble, above all — ends here.
     case startedMoving

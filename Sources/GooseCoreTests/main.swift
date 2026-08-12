@@ -98,7 +98,7 @@ t.test("a goose that never left tracks no mud") {
 }
 
 t.test("comes back muddy after going off screen") {
-    let config = GooseConfig(muddyStepCount: 10, walksBeforeExit: 1...1)
+    let config = GooseConfig(muddyStepCount: 10, walksBeforeExit: 1...1, muddyReturnChance: 1)
     var brain = makeBrain(config: config)
     let events = run(&brain, seconds: 60)
 
@@ -113,7 +113,7 @@ t.test("comes back muddy after going off screen") {
 }
 
 t.test("mud wears off after the configured number of steps") {
-    let config = GooseConfig(muddyStepCount: 10, walksBeforeExit: 1...1)
+    let config = GooseConfig(muddyStepCount: 10, walksBeforeExit: 1...1, muddyReturnChance: 1)
     var brain = makeBrain(config: config)
     let events = run(&brain, seconds: 60)
 
@@ -205,7 +205,8 @@ t.test("an ordinary idle stays short") {
         idleDuration: 0.5...0.5,
         memePauseDuration: 4...4,
         walksBeforeExit: 10_000...10_000,
-        memeChance: 0
+        memeChance: 0,
+        ponderChance: 0
     )
     var brain = makeBrain(config: config)
     let idle = longestIdle(&brain, seconds: 30)
@@ -219,12 +220,156 @@ t.test("a meme pause is far longer than an idle") {
         idleDuration: 0.5...0.5,
         memePauseDuration: 4...4,
         walksBeforeExit: 10_000...10_000,
-        memeChance: 1
+        memeChance: 1,
+        ponderChance: 0
     )
     var brain = makeBrain(config: config)
     let idle = longestIdle(&brain, seconds: 30)
 
     t.expect(idle >= 4, "expected a 4s pause, longest stop was \(idle)s")
+}
+
+// MARK: - Variety
+
+t.test("a dash covers more ground than a stroll") {
+    // Identical seed and config but for the dash: the dash roll is always spent,
+    // so both geese draw the same targets and only the pace differs.
+    let stroll = GooseConfig(
+        idleDuration: 0.4...0.4,
+        walksBeforeExit: 10_000...10_000,
+        memeChance: 0,
+        dashChance: 0,
+        ponderChance: 0
+    )
+    let sprint = GooseConfig(
+        idleDuration: 0.4...0.4,
+        walksBeforeExit: 10_000...10_000,
+        memeChance: 0,
+        dashChance: 1,
+        ponderChance: 0
+    )
+    var slow = makeBrain(seed: 5, config: stroll)
+    var fast = makeBrain(seed: 5, config: sprint)
+
+    let slowPrints = footprints(in: run(&slow, seconds: 20)).count
+    let fastPrints = footprints(in: run(&fast, seconds: 20)).count
+    t.expect(fastPrints > slowPrints, "dashing (\(fastPrints)) should out-cover strolling (\(slowPrints))")
+}
+
+t.test("a clean return leaves no mud") {
+    let config = GooseConfig(walksBeforeExit: 1...1, memeChance: 0, muddyReturnChance: 0)
+    var brain = makeBrain(config: config)
+    let prints = footprints(in: run(&brain, seconds: 60))
+
+    t.expect(!prints.isEmpty, "expected footprints from walking")
+    t.expect(prints.allSatisfy { !$0.muddy }, "a clean return should track no mud")
+}
+
+t.test("a return honk fires when it is certain") {
+    let config = GooseConfig(walksBeforeExit: 1...1, honkChance: 0, memeChance: 0, returnHonkChance: 1)
+    var brain = makeBrain(config: config)
+    let events = run(&brain, seconds: 30)
+
+    t.expect(events.contains(.visibilityChanged(isVisible: true)), "the goose should have returned")
+    t.expect(events.contains(.honk), "a certain return honk should sound")
+}
+
+t.test("a silent return stays silent") {
+    let config = GooseConfig(walksBeforeExit: 1...1, honkChance: 0, memeChance: 0, returnHonkChance: 0)
+    var brain = makeBrain(config: config)
+    let events = run(&brain, seconds: 30)
+
+    t.expect(events.contains(.visibilityChanged(isVisible: true)), "the goose should have returned")
+    t.expect(!events.contains(.honk), "no honk should sound when every honk chance is zero")
+}
+
+t.test("a ponder stands still far longer than an ordinary idle") {
+    let config = GooseConfig(
+        idleDuration: 0.5...0.5,
+        walksBeforeExit: 10_000...10_000,
+        honkChance: 0,
+        memeChance: 0,
+        ponderChance: 1,
+        ponderDuration: 4...4
+    )
+    var brain = makeBrain(config: config)
+    let idle = longestIdle(&brain, seconds: 40)
+
+    t.expect(idle >= 4, "a ponder should reach its full length, longest stop was \(idle)s")
+}
+
+// MARK: - Reminders
+
+func reminders(in timeline: [(time: TimeInterval, event: GooseEvent)]) -> [(time: TimeInterval, kind: ReminderKind, position: CGPoint)] {
+    timeline.compactMap {
+        if case let .showReminder(kind, position) = $0.event { return ($0.time, kind, position) }
+        return nil
+    }
+}
+
+t.test("a due reminder is delivered at the centre") {
+    // Water is due in 2s; the move timer is parked so only water can fire.
+    let config = GooseConfig(walksBeforeExit: 10_000...10_000, waterInterval: 2, moveInterval: 10_000)
+    var brain = makeBrain(config: config)
+    let timeline = runTimed(&brain, seconds: 30)
+
+    guard let first = reminders(in: timeline).first else {
+        return t.fail("no reminder was ever delivered")
+    }
+    t.expectEqual(first.kind, ReminderKind.water, "water was the due reminder")
+    t.expect(abs(first.position.x - screen.midX) < 1, "reminder should sit at centre x, got \(first.position.x)")
+    t.expect(abs(first.position.y - screen.midY) < 1, "reminder should sit at centre y, got \(first.position.y)")
+}
+
+t.test("the goose stands with the reminder, then moves on") {
+    let hold: TimeInterval = 4
+    let config = GooseConfig(
+        walksBeforeExit: 10_000...10_000,
+        waterInterval: 2,
+        moveInterval: 10_000,
+        reminderHoldDuration: hold...hold
+    )
+    var brain = makeBrain(config: config)
+    let timeline = runTimed(&brain, seconds: 40)
+
+    guard let shown = timeline.firstIndex(where: {
+        if case .showReminder = $0.event { return true }
+        return false
+    }) else {
+        return t.fail("no reminder was shown")
+    }
+    guard let resumed = timeline[(shown + 1)...].first(where: { $0.event == .startedMoving }) else {
+        return t.fail("the goose never went back to wandering")
+    }
+
+    let waited = resumed.time - timeline[shown].time
+    t.expect(waited >= hold - 1.0 / 60.0, "expected a \(hold)s hold, waited \(waited)s")
+}
+
+t.test("a reminder can be requested on demand") {
+    // Both clocks parked, so the only reminder that can appear is the requested one.
+    let config = GooseConfig(walksBeforeExit: 10_000...10_000, waterInterval: 10_000, moveInterval: 10_000)
+    var brain = makeBrain(config: config)
+
+    _ = brain.update(deltaTime: 0.1)
+    brain.requestReminder(.move)
+    let timeline = runTimed(&brain, seconds: 30)
+
+    guard let first = reminders(in: timeline).first else {
+        return t.fail("the requested reminder was never delivered")
+    }
+    t.expectEqual(first.kind, ReminderKind.move, "the delivered reminder should be the requested one")
+}
+
+t.test("the goose no longer drops memes at random") {
+    var brain = makeBrain(config: neverLeaves)
+    let events = run(&brain, seconds: 30)
+
+    let droppedMeme = events.contains {
+        if case .droppedMeme = $0 { return true }
+        return false
+    }
+    t.expect(!droppedMeme, "the random meme drop should be gone by default")
 }
 
 // MARK: - Determinism

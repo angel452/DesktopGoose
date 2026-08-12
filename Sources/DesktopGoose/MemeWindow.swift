@@ -15,8 +15,8 @@ final class MemeWindow: NSWindow {
     /// - Parameters:
     ///   - gooseFeet: the goose's feet, in screen coordinates.
     ///   - gooseHeight: how tall the goose stands, so the bubble clears its head.
-    init(image: NSImage?, style: ArtStyle, gooseFeet: CGPoint, gooseHeight: CGFloat) {
-        let content = MemeWindow.fittedSize(for: image)
+    init(image: NSImage?, message: NSAttributedString? = nil, style: ArtStyle, gooseFeet: CGPoint, gooseHeight: CGFloat) {
+        let content = MemeWindow.fittedSize(for: image, message: message)
         let size = SpeechBubble.size(forContent: content, style: style)
 
         let visible = NSScreen.screens.first { $0.frame.contains(gooseFeet) }?.visibleFrame
@@ -55,6 +55,7 @@ final class MemeWindow: NSWindow {
 
         contentView = BubbleContentView(
             image: image,
+            message: message,
             style: style,
             tailSide: tailSide,
             tailCenterX: tailCenterX
@@ -80,11 +81,11 @@ final class MemeWindow: NSWindow {
         onClose = nil
     }
 
-    private static func fittedSize(for image: NSImage?) -> NSSize {
+    private static func fittedSize(for image: NSImage?, message: NSAttributedString?) -> NSSize {
         guard let image, image.size.width > 0, image.size.height > 0 else {
             // Measured, not guessed. A hardcoded width clipped the exclamation mark
             // the moment the font size changed.
-            let text = SpeechBubble.placeholderText().size()
+            let text = (message ?? SpeechBubble.placeholderText()).size()
             return NSSize(width: ceil(text.width), height: ceil(text.height))
         }
 
@@ -97,6 +98,7 @@ final class MemeWindow: NSWindow {
 /// still empty.
 private final class BubbleContentView: NSView {
     private let image: NSImage?
+    private let message: NSAttributedString?
     private let style: ArtStyle
     private let tailSide: SpeechBubble.TailSide
     private let tailCenterX: CGFloat
@@ -104,12 +106,14 @@ private final class BubbleContentView: NSView {
 
     init(
         image: NSImage?,
+        message: NSAttributedString?,
         style: ArtStyle,
         tailSide: SpeechBubble.TailSide,
         tailCenterX: CGFloat,
         onClick: @escaping () -> Void
     ) {
         self.image = image
+        self.message = message
         self.style = style
         self.tailSide = tailSide
         self.tailCenterX = tailCenterX
@@ -133,7 +137,7 @@ private final class BubbleContentView: NSView {
             return
         }
 
-        let text = SpeechBubble.placeholderText()
+        let text = message ?? SpeechBubble.placeholderText()
         // Centred by hand: draw(in:) lays out from the top of the rect down.
         let height = text.size().height
         text.draw(in: NSRect(

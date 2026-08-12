@@ -22,6 +22,15 @@ public struct GooseBrain<RNG: RandomNumberGenerator> {
     private var timer: TimeInterval = 0
     private var distanceSinceStep: CGFloat = 0
     private var walksRemaining: Int = 0
+    /// Multiplies `config.speed` for the current move. Dashes set it above 1.
+    private var speedMultiplier: CGFloat = 1
+    /// Desk time left until each reminder is due. Counts down every frame.
+    private var waterTimer: TimeInterval
+    private var moveTimer: TimeInterval
+    /// A reminder waiting for a safe moment to interrupt the wander.
+    private var pendingReminder: ReminderKind?
+    /// The reminder currently being delivered, or nil when just wandering.
+    private var activeReminder: ReminderKind?
 
     public init(bounds: CGRect, config: GooseConfig = GooseConfig(), rng: RNG) {
         self.bounds = bounds
@@ -29,14 +38,28 @@ public struct GooseBrain<RNG: RandomNumberGenerator> {
         self.rng = rng
         self.position = CGPoint(x: bounds.midX, y: bounds.midY)
         self.target = self.position
+        self.waterTimer = config.waterInterval
+        self.moveTimer = config.moveInterval
 
         self.walksRemaining = Int.random(in: config.walksBeforeExit, using: &self.rng)
         self.timer = TimeInterval.random(in: config.idleDuration, using: &self.rng)
     }
 
+    /// Triggers a reminder delivery by hand — from a menu, or a test — the same way
+    /// the internal clock does when it runs out.
+    public mutating func requestReminder(_ kind: ReminderKind) {
+        // Queue it unconditionally. If a delivery is in flight this fires right
+        // after it (so the menu click is never a silent no-op), and the frozen
+        // clocks mean a scheduled reminder bumped from the slot is not lost.
+        pendingReminder = kind
+    }
+
     /// Advances the goose by `deltaTime` seconds and returns everything that happened.
     public mutating func update(deltaTime: TimeInterval) -> [GooseEvent] {
         var events: [GooseEvent] = []
+
+        advanceReminderClocks(deltaTime: deltaTime)
+        startDeliveryIfDue(&events)
 
         switch state {
         case .idle:
@@ -51,11 +74,60 @@ public struct GooseBrain<RNG: RandomNumberGenerator> {
                 beginReturn(&events)
                 events.append(.startedMoving)
             }
-        case .walking, .leaving, .returning:
+        case .presenting:
+            timer -= deltaTime
+            if timer <= 0 {
+                activeReminder = nil
+                events.append(.startedMoving)
+                beginIdle()
+            }
+        case .walking, .leaving, .returning, .deliveringExit, .deliveringEntry:
             advance(deltaTime: deltaTime, events: &events)
         }
 
         return events
+    }
+
+    // MARK: - Reminders
+
+    private mutating func advanceReminderClocks(deltaTime: TimeInterval) {
+        // While a delivery is in flight the clocks freeze. Otherwise the other
+        // reminder's clock drains during the ~15s fetch and fires the instant this
+        // one ends, dumping two interruptions back-to-back.
+        guard activeReminder == nil else { return }
+
+        // These count time actually spent at the desk. The caller clamps the frame
+        // delta, so a sleeping Mac barely advances them — "sit for 45 minutes"
+        // should not keep ticking while you are away.
+        waterTimer -= deltaTime
+        moveTimer -= deltaTime
+
+        // Latch the due reminder but leave its clock alone: the reset happens when
+        // the delivery actually starts (see startDeliveryIfDue). That way a reminder
+        // bumped out of the pending slot re-latches next frame instead of being lost
+        // for a whole interval.
+        guard pendingReminder == nil else { return }
+        if waterTimer <= 0 {
+            pendingReminder = .water
+        } else if moveTimer <= 0 {
+            pendingReminder = .move
+        }
+    }
+
+    private mutating func startDeliveryIfDue(_ events: inout [GooseEvent]) {
+        // Only interrupt ordinary on-screen wandering; a normal trip off screen
+        // finishes first, then the delivery begins.
+        guard let kind = pendingReminder, state == .idle || state == .walking else { return }
+        pendingReminder = nil
+        activeReminder = kind
+        // Restart this reminder's clock now that it is genuinely being delivered,
+        // not merely when it was latched.
+        switch kind {
+        case .water: waterTimer = config.waterInterval
+        case .move: moveTimer = config.moveInterval
+        }
+        beginDeliveryExit()
+        events.append(.startedMoving)
     }
 
     // MARK: - Movement
@@ -64,7 +136,7 @@ public struct GooseBrain<RNG: RandomNumberGenerator> {
         let dx = target.x - position.x
         let dy = target.y - position.y
         let distance = (dx * dx + dy * dy).squareRoot()
-        let step = config.speed * CGFloat(deltaTime)
+        let step = config.speed * speedMultiplier * CGFloat(deltaTime)
 
         if distance <= step || distance == 0 {
             move(dx: dx, dy: dy, events: &events)
@@ -146,13 +218,25 @@ public struct GooseBrain<RNG: RandomNumberGenerator> {
             walksRemaining = Int.random(in: config.walksBeforeExit, using: &rng)
             beginIdle()
 
-        case .idle, .offscreen:
+        case .deliveringExit:
+            // Off screen now; come straight back in from a side edge.
+            beginDeliveryEntry()
+
+        case .deliveringEntry:
+            // Reached the centre; stand and show the reminder.
+            beginPresenting(&events)
+
+        case .idle, .offscreen, .presenting:
             break
         }
     }
 
     private mutating func beginIdle() {
-        let duration = TimeInterval.random(in: config.idleDuration, using: &rng)
+        // A loiter occasionally deepens into a long, still ponder, so the goose is
+        // not always back on the move after the same short beat.
+        let pondering = Double.random(in: 0...1, using: &rng) < config.ponderChance
+        let range = pondering ? config.ponderDuration : config.idleDuration
+        let duration = TimeInterval.random(in: range, using: &rng)
         beginIdle(duration: duration)
     }
 
@@ -163,23 +247,64 @@ public struct GooseBrain<RNG: RandomNumberGenerator> {
 
     private mutating func beginWalk() {
         target = interiorPoint()
+        // Some walks break into a dash, so the goose's pace stops being a constant
+        // you can read. A stroll is just a dash with a multiplier of 1.
+        let dashing = Double.random(in: 0...1, using: &rng) < config.dashChance
+        speedMultiplier = dashing ? config.dashSpeedMultiplier : 1
         state = .walking
     }
 
     private mutating func beginExit() {
         target = exteriorPoint()
+        speedMultiplier = 1
         state = .leaving
     }
 
+    // MARK: - Reminder delivery
+
+    private mutating func beginDeliveryExit() {
+        target = exteriorPoint()
+        speedMultiplier = 1
+        muddyStepsRemaining = 0
+        state = .deliveringExit
+    }
+
+    private mutating func beginDeliveryEntry() {
+        // Reappear off a side edge at mid-height and head for the centre, so the
+        // approach is horizontal — the direction the dragged meme will come from.
+        let overshoot: CGFloat = 140
+        let fromLeft = Bool.random(using: &rng)
+        let startX = fromLeft ? bounds.minX - overshoot : bounds.maxX + overshoot
+        position = CGPoint(x: startX, y: bounds.midY)
+        target = CGPoint(x: bounds.midX, y: bounds.midY)
+        distanceSinceStep = 0
+        speedMultiplier = 1
+        state = .deliveringEntry
+    }
+
+    private mutating func beginPresenting(_ events: inout [GooseEvent]) {
+        state = .presenting
+        timer = TimeInterval.random(in: config.reminderHoldDuration, using: &rng)
+        events.append(.showReminder(kind: activeReminder ?? .water, position: position))
+    }
+
     private mutating func beginReturn(_ events: inout [GooseEvent]) {
-        // Reappear at an edge, feet caked in whatever it found out there.
+        // Reappear at an edge, feet sometimes caked in whatever it found out there
+        // and sometimes clean, so the return is never quite the same twice.
         position = exteriorPoint()
         target = interiorPoint()
-        muddyStepsRemaining = config.muddyStepCount
+        let broughtMud = Double.random(in: 0...1, using: &rng) < config.muddyReturnChance
+        muddyStepsRemaining = broughtMud ? config.muddyStepCount : 0
         distanceSinceStep = 0
         isVisible = true
+        speedMultiplier = 1
         state = .returning
         events.append(.visibilityChanged(isVisible: true))
+
+        // The greeting honk is a coin toss now, not a guarantee.
+        if Double.random(in: 0...1, using: &rng) < config.returnHonkChance {
+            events.append(.honk)
+        }
     }
 
     // MARK: - Target picking

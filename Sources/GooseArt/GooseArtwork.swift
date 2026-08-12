@@ -49,8 +49,8 @@ public enum GooseClip {
     /// Maps what the goose is doing to the animation that shows it.
     public static func name(for state: GooseState) -> String {
         switch state {
-        case .idle, .offscreen: return idle
-        case .walking, .leaving, .returning: return walk
+        case .idle, .offscreen, .presenting: return idle
+        case .walking, .leaving, .returning, .deliveringExit, .deliveringEntry: return walk
         }
     }
 }

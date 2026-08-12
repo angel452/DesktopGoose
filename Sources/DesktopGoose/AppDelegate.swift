@@ -110,14 +110,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case let .droppedMeme(position):
             dropMeme(at: position)
 
+        case let .showReminder(kind, position):
+            presentReminder(kind: kind, at: position)
+
         case .startedMoving:
             // The goose walks off, the bubble goes with it. Leaving it hanging over
             // an empty patch of desktop is what makes these things feel like litter.
             dismissMemes()
 
-        case let .visibilityChanged(isVisible):
-            // Announce the return trip. Something is different about those feet.
-            if isVisible { sounds.honk() }
+        case .visibilityChanged:
+            // The brain now decides whether a return is worth a honk and emits it
+            // as a `.honk` event, so there is nothing to announce here.
+            break
         }
     }
 
@@ -128,8 +132,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func dropMeme(at localPoint: CGPoint) {
         guard let artStyle else { return }
 
+        // With no meme to show, the bubble speaks a "honk!" line instead — so the
+        // sound always rides along with that dialog. A real meme stays silent;
+        // only the honk talks.
+        let image = Assets.randomMeme()
+        if image == nil { sounds.honk() }
+
         let meme = MemeWindow(
-            image: Assets.randomMeme(),
+            image: image,
             style: artStyle,
             gooseFeet: screenPoint(from: localPoint),
             gooseHeight: gooseHeight
@@ -140,6 +150,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         openMemes.append(meme)
     }
 
+    private func presentReminder(kind: ReminderKind, at localPoint: CGPoint) {
+        guard let artStyle else { return }
+
+        let bubble = MemeWindow(
+            image: nil,
+            message: ReminderMessages.attributed(for: kind),
+            style: artStyle,
+            gooseFeet: screenPoint(from: localPoint),
+            gooseHeight: gooseHeight
+        )
+        bubble.present { [weak self] closed in
+            self?.openMemes.removeAll { $0 === closed }
+        }
+        openMemes.append(bubble)
+        sounds.honk()
+    }
+
     // MARK: - Status bar
 
     private func installStatusItem() {
@@ -147,6 +174,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         item.button?.title = "🪿"
 
         let menu = NSMenu()
+        menu.addItem(NSMenuItem(title: "Water Break Now", action: #selector(remindWater), keyEquivalent: ""))
+        menu.addItem(NSMenuItem(title: "Move Break Now", action: #selector(remindMove), keyEquivalent: ""))
+        menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Clean the Screen", action: #selector(cleanScreen), keyEquivalent: "c"))
         menu.addItem(NSMenuItem(title: "Shoo the Memes", action: #selector(dismissMemes), keyEquivalent: "m"))
         menu.addItem(.separator())
@@ -155,6 +185,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         item.menu = menu
         statusItem = item
+    }
+
+    @objc private func remindWater() {
+        brain?.requestReminder(.water)
+    }
+
+    @objc private func remindMove() {
+        brain?.requestReminder(.move)
     }
 
     @objc private func cleanScreen() {
