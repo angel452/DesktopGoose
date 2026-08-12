@@ -37,6 +37,14 @@ public struct GooseBrain<RNG: RandomNumberGenerator> {
     private var pendingReminder: ReminderKind?
     /// The reminder currently being delivered, or nil when just wandering.
     private var activeReminder: ReminderKind?
+    /// The cursor in screen-local coordinates, or nil when unknown. The
+    /// presentation feeds this in each frame.
+    private var cursorPosition: CGPoint?
+    /// Seconds left before the goose will react to the cursor again.
+    private var cursorCooldownRemaining: TimeInterval = 0
+    /// True once the cursor has cleared the goose's space. Must be true to charge
+    /// again, so a still cursor earns one reaction rather than an endless loop.
+    private var cursorArmed = true
 
     public init(bounds: CGRect, config: GooseConfig = GooseConfig(), rng: RNG) {
         self.bounds = bounds
@@ -60,12 +68,21 @@ public struct GooseBrain<RNG: RandomNumberGenerator> {
         pendingReminder = kind
     }
 
+    /// Tells the goose where the cursor is, in screen-local coordinates, or nil
+    /// when its whereabouts are unknown.
+    public mutating func aimCursor(at point: CGPoint?) {
+        cursorPosition = point
+    }
+
     /// Advances the goose by `deltaTime` seconds and returns everything that happened.
     public mutating func update(deltaTime: TimeInterval) -> [GooseEvent] {
         var events: [GooseEvent] = []
 
+        cursorCooldownRemaining = max(0, cursorCooldownRemaining - deltaTime)
+        refreshCursorArming()
         advanceReminderClocks(deltaTime: deltaTime)
         startDeliveryIfDue(&events)
+        startChargeIfProvoked(&events)
 
         switch state {
         case .idle:
@@ -87,11 +104,91 @@ public struct GooseBrain<RNG: RandomNumberGenerator> {
                 events.append(.startedMoving)
                 beginIdle()
             }
+        case .charging:
+            advanceCharge(deltaTime: deltaTime, events: &events)
         case .walking, .leaving, .returning, .deliveringExit, .deliveringEntry:
             advance(deltaTime: deltaTime, events: &events)
         }
 
         return events
+    }
+
+    // MARK: - Cursor
+
+    /// Re-arms the goose once the cursor has left its space (or vanished), so a
+    /// motionless cursor sitting in range earns one reaction, not a loop.
+    private mutating func refreshCursorArming() {
+        guard let cursor = cursorPosition else {
+            cursorArmed = true
+            return
+        }
+        let dx = cursor.x - position.x
+        let dy = cursor.y - position.y
+        if (dx * dx + dy * dy).squareRoot() > config.cursorReactRadius {
+            cursorArmed = true
+        }
+    }
+
+    private mutating func startChargeIfProvoked(_ events: inout [GooseEvent]) {
+        // Ambush only from ordinary on-screen wandering, once the cooldown elapsed,
+        // once re-armed, and only for a cursor on this same screen.
+        guard cursorCooldownRemaining <= 0, cursorArmed,
+              state == .idle || state == .walking,
+              let cursor = cursorPosition, bounds.contains(cursor) else { return }
+
+        let dx = cursor.x - position.x
+        let dy = cursor.y - position.y
+        let dist = (dx * dx + dy * dy).squareRoot()
+        if dist <= config.cursorReactRadius {
+            beginCharge(instantCatch: dist <= config.peckRadius, events: &events)
+        }
+    }
+
+    private mutating func advanceCharge(deltaTime: TimeInterval, events: inout [GooseEvent]) {
+        timer -= deltaTime
+
+        // Give up if the cursor vanished or slipped onto another screen — chasing it
+        // there would march the goose off its own display.
+        guard let cursor = cursorPosition, bounds.contains(cursor) else {
+            endCharge(caught: false, events: &events)
+            return
+        }
+
+        let dx = cursor.x - position.x
+        let dy = cursor.y - position.y
+        let dist = (dx * dx + dy * dy).squareRoot()
+
+        if dist <= config.peckRadius {
+            endCharge(caught: true, events: &events)
+            return
+        }
+
+        let step = config.speed * config.chargeSpeedMultiplier * CGFloat(deltaTime)
+        let travel = min(step, dist)
+        move(dx: dx / dist * travel, dy: dy / dist * travel, events: &events)
+
+        if timer <= 0 {
+            endCharge(caught: false, events: &events)
+        }
+    }
+
+    private mutating func beginCharge(instantCatch: Bool, events: inout [GooseEvent]) {
+        facesBackward = false
+        cursorArmed = false
+        timer = config.chargeDuration
+        state = .charging
+        // No alarm hiss when the cursor is already in pecking range: the peck honk
+        // lands this same frame and would double it.
+        if !instantCatch { events.append(.honk) }
+        events.append(.startedMoving)
+    }
+
+    private mutating func endCharge(caught: Bool, events: inout [GooseEvent]) {
+        // A sharp peck when it lands, an annoyed huff when the cursor got away.
+        events.append(caught ? .pecked(position: position) : .honk)
+        cursorCooldownRemaining = config.cursorCooldown
+        beginIdle()
+        events.append(.startedMoving)
     }
 
     // MARK: - Reminders
@@ -223,7 +320,7 @@ public struct GooseBrain<RNG: RandomNumberGenerator> {
             // Reached the centre; stand and show the reminder.
             beginPresenting(&events)
 
-        case .idle, .offscreen, .presenting:
+        case .idle, .offscreen, .presenting, .charging:
             break
         }
     }

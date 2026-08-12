@@ -19,6 +19,8 @@ public enum GooseState: Equatable, Sendable {
     case deliveringEntry
     /// Standing at the centre while the reminder is on screen.
     case presenting
+    /// Charging at a cursor that invaded its personal space.
+    case charging
 }
 
 /// The kind of health nudge a delivery carries.
@@ -37,6 +39,8 @@ public enum GooseEvent: Equatable, Sendable {
     case footprint(position: CGPoint, muddy: Bool)
     /// Honk.
     case honk
+    /// The goose caught the cursor with a peck, at this position.
+    case pecked(position: CGPoint)
     /// The goose arrived at the centre with a reminder to show at `position`.
     case showReminder(kind: ReminderKind, position: CGPoint)
     /// The goose stopped standing around and set off again. Anything that was only

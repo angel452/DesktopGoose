@@ -51,7 +51,7 @@ public enum GooseClip {
     public static func name(for state: GooseState) -> String {
         switch state {
         case .idle, .offscreen, .presenting: return idle
-        case .walking, .leaving, .returning, .deliveringExit: return walk
+        case .walking, .leaving, .returning, .deliveringExit, .charging: return walk
         case .deliveringEntry: return drag
         }
     }

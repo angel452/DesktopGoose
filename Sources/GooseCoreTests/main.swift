@@ -335,6 +335,94 @@ t.test("the goose faces backward while dragging a reminder in") {
     t.expect(sawBackward, "the goose never faced backward while dragging")
 }
 
+// MARK: - Cursor
+
+func pecked(in events: [GooseEvent]) -> Bool {
+    events.contains {
+        if case .pecked = $0 { return true }
+        return false
+    }
+}
+
+t.test("a cursor in the goose's space gets pecked") {
+    var brain = makeBrain(config: neverLeaves)
+    _ = brain.update(deltaTime: 0.1)
+
+    brain.aimCursor(at: brain.position) // cursor sitting right on the goose
+    let events = run(&brain, seconds: 3)
+
+    t.expect(pecked(in: events), "a cursor on the goose should get pecked")
+}
+
+t.test("a distant cursor is left alone") {
+    var brain = makeBrain(config: neverLeaves)
+    brain.aimCursor(at: CGPoint(x: -500, y: -500)) // far off any wander path
+    let events = run(&brain, seconds: 5)
+
+    t.expect(!pecked(in: events), "the goose should ignore a cursor far from its space")
+}
+
+t.test("a motionless cursor is pecked once, not in a loop") {
+    // A huge react radius keeps the cursor "in range" forever, so the goose can
+    // only re-arm if it leaves — which it never does. The old cooldown-only guard
+    // re-pecked on a loop here.
+    let config = GooseConfig(walksBeforeExit: 10_000...10_000, cursorReactRadius: 2000, cursorCooldown: 1)
+    var brain = makeBrain(config: config)
+    _ = brain.update(deltaTime: 0.1)
+    brain.aimCursor(at: brain.position)
+
+    var pecks = 0
+    var elapsed: TimeInterval = 0
+    let step = 1.0 / 60.0
+    while elapsed < 6 {
+        for event in brain.update(deltaTime: step) {
+            if case .pecked = event { pecks += 1 }
+        }
+        elapsed += step
+    }
+
+    t.expectEqual(pecks, 1, "a still cursor should be pecked once, not in a loop")
+}
+
+t.test("a cursor on another screen is ignored") {
+    var brain = makeBrain(config: neverLeaves)
+    _ = brain.update(deltaTime: 0.1)
+    // Mapped just past the right edge, as a neighbouring monitor would be.
+    brain.aimCursor(at: CGPoint(x: screen.maxX + 40, y: brain.position.y))
+
+    let tolerated = screen.insetBy(dx: -1, dy: -1)
+    let events = run(&brain, seconds: 3) { brain in
+        t.expect(tolerated.contains(brain.position), "goose left its screen chasing an off-screen cursor: \(brain.position)")
+    }
+
+    t.expect(!pecked(in: events), "an off-screen cursor should not be pecked")
+}
+
+t.test("the goose gives up when the cursor slips away") {
+    let config = GooseConfig(walksBeforeExit: 10_000...10_000, peckRadius: 8, chargeDuration: 0.4)
+    var brain = makeBrain(config: config)
+    _ = brain.update(deltaTime: 0.1)
+
+    // Provoke it with a cursor right beside the goose.
+    brain.aimCursor(at: CGPoint(x: brain.position.x + 30, y: brain.position.y))
+    _ = brain.update(deltaTime: 1.0 / 60.0)
+    let charged = brain.state == .charging
+
+    // Then the cursor vanishes — nothing left to catch.
+    brain.aimCursor(at: nil)
+    var caught = false
+    var elapsed: TimeInterval = 0
+    let step = 1.0 / 60.0
+    while elapsed < 2 {
+        if pecked(in: brain.update(deltaTime: step)) { caught = true }
+        elapsed += step
+    }
+
+    t.expect(charged, "the goose should charge a cursor beside it")
+    t.expect(!caught, "it should not peck a cursor that vanished")
+    t.expect(brain.state != .charging, "it should give up rather than charge forever")
+}
+
 // MARK: - Determinism
 
 t.test("the same seed replays the same goose") {

@@ -90,6 +90,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let deltaTime = min(now - lastTick, 0.1)
         lastTick = now
 
+        // Hand the goose the cursor in its own screen-local coordinates.
+        let cursor = NSEvent.mouseLocation
+        brain.aimCursor(at: CGPoint(x: cursor.x - screenOrigin.x, y: cursor.y - screenOrigin.y))
+
         let events = brain.update(deltaTime: deltaTime)
         self.brain = brain
 
@@ -146,6 +150,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case .honk:
             sounds.honk()
 
+        case .pecked:
+            // The satisfying "gotcha" — same honk for now; a sharper peck sound
+            // and a jab animation are a later polish.
+            sounds.honk()
+
         case let .showReminder(kind, position):
             presentReminder(kind: kind, at: position)
 
@@ -191,8 +200,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(NSMenuItem(title: "Water Break Now", action: #selector(remindWater), keyEquivalent: ""))
         menu.addItem(NSMenuItem(title: "Move Break Now", action: #selector(remindMove), keyEquivalent: ""))
         menu.addItem(.separator())
-        menu.addItem(NSMenuItem(title: "Clean the Screen", action: #selector(cleanScreen), keyEquivalent: "c"))
-        menu.addItem(NSMenuItem(title: "Shoo the Memes", action: #selector(dismissMemes), keyEquivalent: "m"))
+        menu.addItem(NSMenuItem(title: "Shoo the Memes", action: #selector(dismissMemes), keyEquivalent: ""))
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Quit Desktop Goose", action: #selector(quit), keyEquivalent: "q"))
         for menuItem in menu.items { menuItem.target = self }
@@ -207,10 +215,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func remindMove() {
         brain?.requestReminder(.move)
-    }
-
-    @objc private func cleanScreen() {
-        mudWindow?.mudView.clear()
     }
 
     /// Closes only the message bubbles — used when the goose sets off, so the meme

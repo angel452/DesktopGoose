@@ -43,6 +43,17 @@ public struct GooseConfig: Sendable {
     /// Speed multiplier while dragging a meme in — below 1 so the haul is a slow,
     /// deliberate trudge instead of a normal walk.
     public var dragSpeedMultiplier: CGFloat
+    /// How close the cursor must get before the goose charges it.
+    public var cursorReactRadius: CGFloat
+    /// How close the goose must get to the cursor to land a peck.
+    public var peckRadius: CGFloat
+    /// Speed multiplier while charging the cursor — a committed lunge.
+    public var chargeSpeedMultiplier: CGFloat
+    /// How long the goose will chase a cursor before giving up.
+    public var chargeDuration: TimeInterval
+    /// How long the goose ignores the cursor after a charge, so hovering does not
+    /// trigger an endless string of lunges.
+    public var cursorCooldown: TimeInterval
 
     public init(
         speed: CGFloat = 150,
@@ -62,7 +73,12 @@ public struct GooseConfig: Sendable {
         waterInterval: TimeInterval = 45 * 60,
         moveInterval: TimeInterval = 30 * 60,
         reminderHoldDuration: ClosedRange<TimeInterval> = 5.0...7.0,
-        dragSpeedMultiplier: CGFloat = 0.45
+        dragSpeedMultiplier: CGFloat = 0.45,
+        cursorReactRadius: CGFloat = 120,
+        peckRadius: CGFloat = 28,
+        chargeSpeedMultiplier: CGFloat = 2.6,
+        chargeDuration: TimeInterval = 1.5,
+        cursorCooldown: TimeInterval = 3.5
     ) {
         self.speed = speed
         self.stepDistance = stepDistance
@@ -82,5 +98,10 @@ public struct GooseConfig: Sendable {
         self.moveInterval = moveInterval
         self.reminderHoldDuration = reminderHoldDuration
         self.dragSpeedMultiplier = dragSpeedMultiplier
+        self.cursorReactRadius = cursorReactRadius
+        self.peckRadius = peckRadius
+        self.chargeSpeedMultiplier = chargeSpeedMultiplier
+        self.chargeDuration = chargeDuration
+        self.cursorCooldown = cursorCooldown
     }
 }
