@@ -45,12 +45,14 @@ public extension GooseArtwork {
 public enum GooseClip {
     public static let idle = "idle"
     public static let walk = "walk"
+    public static let drag = "drag"
 
     /// Maps what the goose is doing to the animation that shows it.
     public static func name(for state: GooseState) -> String {
         switch state {
         case .idle, .offscreen, .presenting: return idle
-        case .walking, .leaving, .returning, .deliveringExit, .deliveringEntry: return walk
+        case .walking, .leaving, .returning, .deliveringExit: return walk
+        case .deliveringEntry: return drag
         }
     }
 }

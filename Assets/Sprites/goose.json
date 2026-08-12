@@ -25,6 +25,19 @@
       "framesPerSecond" : 2,
       "loops" : true,
       "name" : "idle"
+    },
+    {
+      "frames" : [
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ],
+      "framesPerSecond" : 6,
+      "loops" : true,
+      "name" : "drag"
     }
   ],
   "columns" : 5,

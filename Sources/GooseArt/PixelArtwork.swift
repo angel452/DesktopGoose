@@ -14,8 +14,9 @@ import GooseCore
 public struct PixelArtwork: GooseArtwork {
     public static let walkFrameCount = 8
     public static let idleFrameCount = 2
+    public static let dragFrameCount = 6
 
-    public var frameCount: Int { Self.walkFrameCount + Self.idleFrameCount }
+    public var frameCount: Int { Self.walkFrameCount + Self.idleFrameCount + Self.dragFrameCount }
     public var frameSize: CGSize { CGSize(width: 42, height: 38) }
     public var anchor: CGPoint { CGPoint(x: 18, y: 2) }
     public var isPixelArt: Bool { true }
@@ -37,6 +38,13 @@ public struct PixelArtwork: GooseArtwork {
                 name: GooseClip.idle,
                 frames: Array(Self.walkFrameCount..<(Self.walkFrameCount + Self.idleFrameCount)),
                 framesPerSecond: 2
+            )
+        case GooseClip.drag:
+            let start = Self.walkFrameCount + Self.idleFrameCount
+            return AnimationClip(
+                name: GooseClip.drag,
+                frames: Array(start..<(start + Self.dragFrameCount)),
+                framesPerSecond: 6
             )
         default:
             return nil
@@ -73,6 +81,8 @@ public struct PixelArtwork: GooseArtwork {
         let legBack: CGFloat
         let bodyBob: CGFloat
         let headLead: CGFloat
+        /// How far the head strains downward. Only the drag pose uses it.
+        let headDrop: CGFloat
 
         /// Where both legs meet at the passing phase of the stride.
         private static let hip: CGFloat = -2
@@ -86,12 +96,27 @@ public struct PixelArtwork: GooseArtwork {
                 legBack = Self.hip - swing
                 bodyBob = (abs(sin(phase * 2)) * 2).rounded()
                 headLead = (sin(phase) * 2).rounded()
-            } else {
+                headDrop = 0
+            } else if frame < PixelArtwork.walkFrameCount + PixelArtwork.idleFrameCount {
                 // Standing still means feet planted apart, not stacked on the hip.
                 legFront = 1
                 legBack = -5
                 bodyBob = CGFloat(frame - PixelArtwork.walkFrameCount)
                 headLead = 0
+                headDrop = 0
+            } else {
+                // Dragging the meme in: a braced, heaving trudge. Feet stamp wide
+                // and the head strains low and forward toward the load, with none
+                // of the walk's cheerful bounce.
+                let dragIndex = frame - PixelArtwork.walkFrameCount - PixelArtwork.idleFrameCount
+                let phase = CGFloat(dragIndex) / CGFloat(PixelArtwork.dragFrameCount) * .pi * 2
+                let stamp = (sin(phase) * 2).rounded()
+
+                legFront = Self.hip + stamp + 3
+                legBack = Self.hip - stamp - 3
+                bodyBob = 0
+                headLead = (1 + sin(phase)).rounded()
+                headDrop = (2 + abs(sin(phase)) * 2).rounded()
             }
         }
     }
@@ -111,7 +136,7 @@ public struct PixelArtwork: GooseArtwork {
         drawLeg(x: pose.legBack, bodyTop: 7 + pose.bodyBob)
         drawLeg(x: pose.legFront, bodyTop: 7 + pose.bodyBob)
         drawBody(bob: pose.bodyBob)
-        drawHead(bob: pose.bodyBob, lead: pose.headLead)
+        drawHead(bob: pose.bodyBob, lead: pose.headLead, drop: pose.headDrop)
     }
 
     /// A flat slab, not a gradient. Soft shadows belong to the smooth style; here
@@ -138,9 +163,9 @@ public struct PixelArtwork: GooseArtwork {
         NSBezierPath(rect: NSRect(x: -18, y: 13 + bob, width: 6, height: 5)).fill()
     }
 
-    private func drawHead(bob: CGFloat, lead: CGFloat) {
+    private func drawHead(bob: CGFloat, lead: CGFloat, drop: CGFloat) {
         let x = 4 + lead
-        let y = 21 + bob
+        let y = 21 + bob - drop
 
         Self.feather.setFill()
         // A solid neck block, so head and body read as one mass rather than a ball
