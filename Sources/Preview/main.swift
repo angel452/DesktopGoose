@@ -86,6 +86,61 @@ func drawSheet(zoom: Int) throws {
     try write(bitmap, to: outputDirectory.appendingPathComponent("preview-sheet.png"))
 }
 
+// MARK: - App icon
+
+// Renders a 1024x1024 master PNG for the app icon: the goose, magnified crisp on a
+// rounded sky tile. `Scripts/make-icon.sh` turns this into Support/AppIcon.icns.
+func drawIcon() throws {
+    guard let image = NSImage(contentsOf: spritesDirectory.appendingPathComponent("goose.png")),
+          let sheet = image.cgImage(forProposedRect: nil, context: nil, hints: nil)
+    else { return }
+
+    // The idle frame (index 8) on the 5-column sheet of 42x38 frames.
+    let frameW = 42, frameH = 38, columns = 5, idleFrame = 8
+    let cell = CGRect(
+        x: CGFloat((idleFrame % columns) * frameW),
+        y: CGFloat((idleFrame / columns) * frameH),
+        width: CGFloat(frameW), height: CGFloat(frameH)
+    )
+    guard let goose = sheet.cropping(to: cell) else { return }
+
+    let side = 1024
+    let sideF = CGFloat(side)
+    guard let bitmap = render(width: side, height: side, {
+        guard let context = NSGraphicsContext.current?.cgContext else { return }
+
+        // A rounded tile — the macOS app-icon silhouette — filled with a soft sky.
+        let tile = CGRect(x: 0, y: 0, width: sideF, height: sideF).insetBy(dx: 40, dy: 40)
+        context.addPath(CGPath(roundedRect: tile, cornerWidth: 205, cornerHeight: 205, transform: nil))
+        context.clip()
+
+        if let sky = CGGradient(
+            colorsSpace: CGColorSpaceCreateDeviceRGB(),
+            colors: [
+                CGColor(red: 0.64, green: 0.83, blue: 0.97, alpha: 1),
+                CGColor(red: 0.38, green: 0.62, blue: 0.86, alpha: 1),
+            ] as CFArray,
+            locations: [0, 1]
+        ) {
+            context.drawLinearGradient(sky, start: CGPoint(x: 0, y: sideF), end: .zero, options: [])
+        }
+
+        // The goose, magnified with interpolation off so the pixels stay crisp,
+        // centred with a little weight toward the bottom.
+        let zoom: CGFloat = 15
+        let gooseW = CGFloat(frameW) * zoom
+        let gooseH = CGFloat(frameH) * zoom
+        context.interpolationQuality = .none
+        context.draw(goose, in: CGRect(
+            x: (sideF - gooseW) / 2,
+            y: (sideF - gooseH) / 2 - 30,
+            width: gooseW, height: gooseH
+        ))
+    }) else { return }
+
+    try write(bitmap, to: outputDirectory.appendingPathComponent("AppIcon-1024.png"))
+}
+
 // MARK: - Composed scene
 
 func drawScene() throws {
@@ -156,7 +211,9 @@ func drawScene() throws {
 
 // MARK: - Entry
 
-if arguments.contains("--sheet") {
+if arguments.contains("--icon") {
+    try drawIcon()
+} else if arguments.contains("--sheet") {
     let zoom = arguments.last.flatMap(Int.init) ?? 8
     try drawSheet(zoom: max(zoom, 1))
 } else {
