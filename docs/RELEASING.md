@@ -27,25 +27,46 @@ that step; it is a nice-to-have, not a requirement.
 
 ## Cutting a Release
 
-1. Land the change and make sure tests pass: `swift run GooseCoreTests`.
-2. Bump the version in `Support/Info.plist` (`CFBundleShortVersionString`).
-3. If you changed the goose's drawing, the icon is regenerated automatically by
-   `release.sh`; nothing to do by hand.
-4. Build, zip, and publish in one step:
+**The common case is three lines** — bump the version, commit and push, run the
+script. Everything, in order:
+
+1. **Tests pass:** `swift run GooseCoreTests` (exit 0).
+
+2. **Only if you changed the goose's drawing** (`Sources/GooseArt/PixelArtwork.swift`):
+   re-bake, or the Release ships the *old* goose. `release.sh` refreshes the icon on
+   its own but does **not** re-bake the sprite sheet — that is a committed source you
+   update by hand.
+
+   ```sh
+   swift run BakeSprites       # updates Assets/Sprites/goose.{png,json}
+   ./Scripts/make-icon.sh      # updates Support/AppIcon.icns
+   ```
+
+3. **Bump the version** in `Support/Info.plist` → `CFBundleShortVersionString`
+   (e.g. `0.1.0` → `0.2.0`; small fix bumps the last digit, a bigger change the
+   middle one).
+
+4. **Commit and push** everything (never `CLAUDE.md` — it is local-only), so the tag
+   the Release creates points at code that is actually on GitHub.
+
+5. **Build, zip, and publish** — one command. The tag must match the version you set
+   in step 3:
 
    ```sh
    ./Scripts/release.sh v0.2.0
    ```
 
-   Without a tag it only builds and zips into `build/` (a dry run):
+`release.sh v<tag>` refreshes the icon, builds the universal `.app`, zips it, runs
+`gh release create`, uploads the zip, and writes the first-launch instructions into
+the Release notes. It needs the `gh` CLI authenticated against this repo
+(`gh auth status`).
 
-   ```sh
-   ./Scripts/release.sh
-   ```
+**Dry run** — build and zip into `build/` but publish nothing. Use it to confirm it
+compiles before you tag:
 
-`release.sh v<tag>` runs `gh release create`, uploads the zip, and writes the
-first-launch instructions into the Release notes. It needs the `gh` CLI
-authenticated against this repo.
+```sh
+./Scripts/release.sh
+```
 
 ## The instructions users get
 
