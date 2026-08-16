@@ -33,11 +33,10 @@ public struct GooseConfig: Sendable {
     public var ponderChance: Double
     /// How long a ponder lasts — well past an ordinary idle.
     public var ponderDuration: ClosedRange<TimeInterval>
-    /// Desk time between water-break reminders. Counts active time, not wall time:
+    /// Desk time between health-break reminders. Counts active time, not wall time:
     /// the frame delta is clamped by the caller, so a sleeping Mac barely advances it.
-    public var waterInterval: TimeInterval
-    /// Desk time between stand-up-and-move reminders.
-    public var moveInterval: TimeInterval
+    /// One clock drives every reminder; the delivered message is chosen at random.
+    public var reminderInterval: TimeInterval
     /// How long the goose stands at the centre with a reminder on screen.
     public var reminderHoldDuration: ClosedRange<TimeInterval>
     /// Speed multiplier while dragging a meme in — below 1 so the haul is a slow,
@@ -70,8 +69,7 @@ public struct GooseConfig: Sendable {
         dashSpeedMultiplier: CGFloat = 2.2,
         ponderChance: Double = 0.15,
         ponderDuration: ClosedRange<TimeInterval> = 3.0...6.0,
-        waterInterval: TimeInterval = 45 * 60,
-        moveInterval: TimeInterval = 30 * 60,
+        reminderInterval: TimeInterval = 40 * 60,
         reminderHoldDuration: ClosedRange<TimeInterval> = 5.0...7.0,
         dragSpeedMultiplier: CGFloat = 0.45,
         cursorReactRadius: CGFloat = 120,
@@ -94,8 +92,7 @@ public struct GooseConfig: Sendable {
         self.dashSpeedMultiplier = dashSpeedMultiplier
         self.ponderChance = ponderChance
         self.ponderDuration = ponderDuration
-        self.waterInterval = waterInterval
-        self.moveInterval = moveInterval
+        self.reminderInterval = reminderInterval
         self.reminderHoldDuration = reminderHoldDuration
         self.dragSpeedMultiplier = dragSpeedMultiplier
         self.cursorReactRadius = cursorReactRadius

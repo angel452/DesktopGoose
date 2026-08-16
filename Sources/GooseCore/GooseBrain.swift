@@ -30,13 +30,12 @@ public struct GooseBrain<RNG: RandomNumberGenerator> {
     /// When true the goose faces against its motion — walking backward to drag a
     /// meme, rather than facing where it is going.
     private var facesBackward = false
-    /// Desk time left until each reminder is due. Counts down every frame.
-    private var waterTimer: TimeInterval
-    private var moveTimer: TimeInterval
-    /// A reminder waiting for a safe moment to interrupt the wander.
-    private var pendingReminder: ReminderKind?
-    /// The reminder currently being delivered, or nil when just wandering.
-    private var activeReminder: ReminderKind?
+    /// Desk time left until the next reminder is due. Counts down every frame.
+    private var reminderTimer: TimeInterval
+    /// True when a reminder is waiting for a safe moment to interrupt the wander.
+    private var reminderPending = false
+    /// True while a reminder is being delivered, false when just wandering.
+    private var reminderActive = false
     /// The cursor in screen-local coordinates, or nil when unknown. The
     /// presentation feeds this in each frame.
     private var cursorPosition: CGPoint?
@@ -52,8 +51,7 @@ public struct GooseBrain<RNG: RandomNumberGenerator> {
         self.rng = rng
         self.position = CGPoint(x: bounds.midX, y: bounds.midY)
         self.target = self.position
-        self.waterTimer = config.waterInterval
-        self.moveTimer = config.moveInterval
+        self.reminderTimer = config.reminderInterval
 
         self.walksRemaining = Int.random(in: config.walksBeforeExit, using: &self.rng)
         self.timer = TimeInterval.random(in: config.idleDuration, using: &self.rng)
@@ -61,11 +59,11 @@ public struct GooseBrain<RNG: RandomNumberGenerator> {
 
     /// Triggers a reminder delivery by hand — from a menu, or a test — the same way
     /// the internal clock does when it runs out.
-    public mutating func requestReminder(_ kind: ReminderKind) {
+    public mutating func requestReminder() {
         // Queue it unconditionally. If a delivery is in flight this fires right
         // after it (so the menu click is never a silent no-op), and the frozen
-        // clocks mean a scheduled reminder bumped from the slot is not lost.
-        pendingReminder = kind
+        // clock means a scheduled reminder bumped from the slot is not lost.
+        reminderPending = true
     }
 
     /// Tells the goose where the cursor is, in screen-local coordinates, or nil
@@ -100,7 +98,7 @@ public struct GooseBrain<RNG: RandomNumberGenerator> {
         case .presenting:
             timer -= deltaTime
             if timer <= 0 {
-                activeReminder = nil
+                reminderActive = false
                 events.append(.startedMoving)
                 beginIdle()
             }
@@ -194,41 +192,34 @@ public struct GooseBrain<RNG: RandomNumberGenerator> {
     // MARK: - Reminders
 
     private mutating func advanceReminderClocks(deltaTime: TimeInterval) {
-        // While a delivery is in flight the clocks freeze. Otherwise the other
-        // reminder's clock drains during the ~15s fetch and fires the instant this
-        // one ends, dumping two interruptions back-to-back.
-        guard activeReminder == nil else { return }
+        // While a delivery is in flight the clock freezes, so the moment it ends
+        // does not immediately trip the next reminder.
+        guard !reminderActive else { return }
 
-        // These count time actually spent at the desk. The caller clamps the frame
-        // delta, so a sleeping Mac barely advances them — "sit for 45 minutes"
+        // Counts time actually spent at the desk. The caller clamps the frame
+        // delta, so a sleeping Mac barely advances it — "sit for 40 minutes"
         // should not keep ticking while you are away.
-        waterTimer -= deltaTime
-        moveTimer -= deltaTime
+        reminderTimer -= deltaTime
 
-        // Latch the due reminder but leave its clock alone: the reset happens when
+        // Latch the due reminder but leave the clock alone: the reset happens when
         // the delivery actually starts (see startDeliveryIfDue). That way a reminder
         // bumped out of the pending slot re-latches next frame instead of being lost
         // for a whole interval.
-        guard pendingReminder == nil else { return }
-        if waterTimer <= 0 {
-            pendingReminder = .water
-        } else if moveTimer <= 0 {
-            pendingReminder = .move
+        guard !reminderPending else { return }
+        if reminderTimer <= 0 {
+            reminderPending = true
         }
     }
 
     private mutating func startDeliveryIfDue(_ events: inout [GooseEvent]) {
         // Only interrupt ordinary on-screen wandering; a normal trip off screen
         // finishes first, then the delivery begins.
-        guard let kind = pendingReminder, state == .idle || state == .walking else { return }
-        pendingReminder = nil
-        activeReminder = kind
-        // Restart this reminder's clock now that it is genuinely being delivered,
-        // not merely when it was latched.
-        switch kind {
-        case .water: waterTimer = config.waterInterval
-        case .move: moveTimer = config.moveInterval
-        }
+        guard reminderPending, state == .idle || state == .walking else { return }
+        reminderPending = false
+        reminderActive = true
+        // Restart the clock now that a reminder is genuinely being delivered, not
+        // merely when it was latched.
+        reminderTimer = config.reminderInterval
         beginDeliveryExit()
         events.append(.startedMoving)
     }
@@ -386,7 +377,7 @@ public struct GooseBrain<RNG: RandomNumberGenerator> {
     private mutating func beginPresenting(_ events: inout [GooseEvent]) {
         state = .presenting
         timer = TimeInterval.random(in: config.reminderHoldDuration, using: &rng)
-        events.append(.showReminder(kind: activeReminder ?? .water, position: position))
+        events.append(.showReminder(position: position))
     }
 
     private mutating func beginReturn(_ events: inout [GooseEvent]) {

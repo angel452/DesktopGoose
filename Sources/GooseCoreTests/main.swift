@@ -255,23 +255,22 @@ t.test("a ponder stands still far longer than an ordinary idle") {
 
 // MARK: - Reminders
 
-func reminders(in timeline: [(time: TimeInterval, event: GooseEvent)]) -> [(time: TimeInterval, kind: ReminderKind, position: CGPoint)] {
+func reminders(in timeline: [(time: TimeInterval, event: GooseEvent)]) -> [(time: TimeInterval, position: CGPoint)] {
     timeline.compactMap {
-        if case let .showReminder(kind, position) = $0.event { return ($0.time, kind, position) }
+        if case let .showReminder(position) = $0.event { return ($0.time, position) }
         return nil
     }
 }
 
 t.test("a due reminder is delivered at the centre") {
-    // Water is due in 2s; the move timer is parked so only water can fire.
-    let config = GooseConfig(walksBeforeExit: 10_000...10_000, waterInterval: 2, moveInterval: 10_000)
+    // The single reminder clock is due in 2s.
+    let config = GooseConfig(walksBeforeExit: 10_000...10_000, reminderInterval: 2)
     var brain = makeBrain(config: config)
     let timeline = runTimed(&brain, seconds: 30)
 
     guard let first = reminders(in: timeline).first else {
         return t.fail("no reminder was ever delivered")
     }
-    t.expectEqual(first.kind, ReminderKind.water, "water was the due reminder")
     t.expect(abs(first.position.x - screen.midX) < 1, "reminder should sit at centre x, got \(first.position.x)")
     t.expect(abs(first.position.y - screen.midY) < 1, "reminder should sit at centre y, got \(first.position.y)")
 }
@@ -280,8 +279,7 @@ t.test("the goose stands with the reminder, then moves on") {
     let hold: TimeInterval = 4
     let config = GooseConfig(
         walksBeforeExit: 10_000...10_000,
-        waterInterval: 2,
-        moveInterval: 10_000,
+        reminderInterval: 2,
         reminderHoldDuration: hold...hold
     )
     var brain = makeBrain(config: config)
@@ -302,22 +300,23 @@ t.test("the goose stands with the reminder, then moves on") {
 }
 
 t.test("a reminder can be requested on demand") {
-    // Both clocks parked, so the only reminder that can appear is the requested one.
-    let config = GooseConfig(walksBeforeExit: 10_000...10_000, waterInterval: 10_000, moveInterval: 10_000)
+    // The clock is parked far out, so the only reminder that can appear is the
+    // one requested by hand.
+    let config = GooseConfig(walksBeforeExit: 10_000...10_000, reminderInterval: 10_000)
     var brain = makeBrain(config: config)
 
     _ = brain.update(deltaTime: 0.1)
-    brain.requestReminder(.move)
+    brain.requestReminder()
     let timeline = runTimed(&brain, seconds: 30)
 
     guard let first = reminders(in: timeline).first else {
         return t.fail("the requested reminder was never delivered")
     }
-    t.expectEqual(first.kind, ReminderKind.move, "the delivered reminder should be the requested one")
+    t.expect(abs(first.position.x - screen.midX) < 1, "requested reminder should sit at centre x, got \(first.position.x)")
 }
 
 t.test("the goose faces backward while dragging a reminder in") {
-    let config = GooseConfig(walksBeforeExit: 10_000...10_000, waterInterval: 2, moveInterval: 10_000)
+    let config = GooseConfig(walksBeforeExit: 10_000...10_000, reminderInterval: 2)
     var brain = makeBrain(config: config)
 
     var sawEntry = false

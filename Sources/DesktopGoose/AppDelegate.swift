@@ -155,8 +155,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // and a jab animation are a later polish.
             sounds.honk()
 
-        case let .showReminder(kind, position):
-            presentReminder(kind: kind, at: position)
+        case let .showReminder(position):
+            presentReminder(at: position)
 
         case .startedMoving:
             // The goose walks off, its message bubble goes with it. The dragged meme
@@ -174,11 +174,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         CGPoint(x: screenOrigin.x + local.x, y: screenOrigin.y + local.y)
     }
 
-    private func presentReminder(kind: ReminderKind, at localPoint: CGPoint) {
+    private func presentReminder(at localPoint: CGPoint) {
         guard let artStyle else { return }
 
         let bubble = MessageBubble(
-            message: ReminderMessages.attributed(for: kind),
+            message: ReminderMessages.attributed(),
             style: artStyle,
             gooseFeet: screenPoint(from: localPoint),
             gooseHeight: gooseHeight
@@ -197,8 +197,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         item.button?.title = "🪿"
 
         let menu = NSMenu()
-        menu.addItem(NSMenuItem(title: "Water Break Now", action: #selector(remindWater), keyEquivalent: ""))
-        menu.addItem(NSMenuItem(title: "Move Break Now", action: #selector(remindMove), keyEquivalent: ""))
+        menu.addItem(NSMenuItem(title: "Take a Break Now", action: #selector(remindNow), keyEquivalent: ""))
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Shoo the Memes", action: #selector(dismissMemes), keyEquivalent: ""))
         menu.addItem(.separator())
@@ -209,12 +208,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem = item
     }
 
-    @objc private func remindWater() {
-        brain?.requestReminder(.water)
-    }
-
-    @objc private func remindMove() {
-        brain?.requestReminder(.move)
+    @objc private func remindNow() {
+        brain?.requestReminder()
     }
 
     /// Closes only the message bubbles — used when the goose sets off, so the meme

@@ -23,14 +23,6 @@ public enum GooseState: Equatable, Sendable {
     case charging
 }
 
-/// The kind of health nudge a delivery carries.
-public enum ReminderKind: Equatable, Sendable {
-    /// Time to drink some water.
-    case water
-    /// Time to stand up and move.
-    case move
-}
-
 /// Something the goose did that the outside world has to react to.
 ///
 /// The brain never draws, plays audio or opens windows. It only reports.
@@ -42,7 +34,7 @@ public enum GooseEvent: Equatable, Sendable {
     /// The goose caught the cursor with a peck, at this position.
     case pecked(position: CGPoint)
     /// The goose arrived at the centre with a reminder to show at `position`.
-    case showReminder(kind: ReminderKind, position: CGPoint)
+    case showReminder(position: CGPoint)
     /// The goose stopped standing around and set off again. Anything that was only
     /// true while it stood still — a speech bubble, above all — ends here.
     case startedMoving
