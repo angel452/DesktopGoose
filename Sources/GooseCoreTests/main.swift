@@ -343,6 +343,13 @@ func pecked(in events: [GooseEvent]) -> Bool {
     }
 }
 
+func gaveUp(in events: [GooseEvent]) -> Bool {
+    events.contains {
+        if case .gaveUpChase = $0 { return true }
+        return false
+    }
+}
+
 t.test("a cursor in the goose's space gets pecked") {
     var brain = makeBrain(config: neverLeaves)
     _ = brain.update(deltaTime: 0.1)
@@ -397,29 +404,85 @@ t.test("a cursor on another screen is ignored") {
     t.expect(!pecked(in: events), "an off-screen cursor should not be pecked")
 }
 
+t.test("the goose glares before it charges") {
+    // A committed telegraph: the goose locks on and holds an angry stare for
+    // roughly `cursorStareDuration` before it ever moves, giving the human a beat.
+    let stare: TimeInterval = 1.0
+    let config = GooseConfig(walksBeforeExit: 10_000...10_000, cursorReactRadius: 2000, cursorStareDuration: stare)
+    var brain = makeBrain(config: config)
+    _ = brain.update(deltaTime: 0.1)
+    brain.aimCursor(at: CGPoint(x: brain.position.x + 60, y: brain.position.y))
+
+    _ = brain.update(deltaTime: 1.0 / 60.0)
+    t.expectEqual(brain.state, GooseState.alerting, "it should glare first, not charge instantly")
+
+    var elapsed: TimeInterval = 0
+    let step = 1.0 / 60.0
+    while elapsed < stare + 0.5, brain.state == .alerting {
+        _ = brain.update(deltaTime: step)
+        elapsed += step
+    }
+    t.expect(elapsed >= stare - 2 * step, "it should hold the stare ~\(stare)s, held \(elapsed)s")
+    t.expect(brain.state != .alerting, "the stare should end in a charge, not linger")
+}
+
 t.test("the goose gives up when the cursor slips away") {
     let config = GooseConfig(walksBeforeExit: 10_000...10_000, peckRadius: 8, chargeDuration: 0.4)
     var brain = makeBrain(config: config)
     _ = brain.update(deltaTime: 0.1)
 
-    // Provoke it with a cursor right beside the goose.
+    // Provoke it with a cursor beside the goose, then wait out the stare so it
+    // commits to the charge.
     brain.aimCursor(at: CGPoint(x: brain.position.x + 30, y: brain.position.y))
-    _ = brain.update(deltaTime: 1.0 / 60.0)
+    var elapsed: TimeInterval = 0
+    let step = 1.0 / 60.0
+    while elapsed < 2, brain.state != .charging {
+        _ = brain.update(deltaTime: step)
+        elapsed += step
+    }
     let charged = brain.state == .charging
 
     // Then the cursor vanishes — nothing left to catch.
     brain.aimCursor(at: nil)
     var caught = false
+    var relented = false
+    var chaseElapsed: TimeInterval = 0
+    while chaseElapsed < 2 {
+        let events = brain.update(deltaTime: step)
+        if pecked(in: events) { caught = true }
+        if gaveUp(in: events) { relented = true }
+        chaseElapsed += step
+    }
+
+    t.expect(charged, "the goose should charge a cursor beside it after the stare")
+    t.expect(!caught, "it should not peck a cursor that vanished")
+    t.expect(relented, "it should emit a gave-up taunt when the chase fizzles")
+    t.expect(brain.state != .charging, "it should give up rather than charge forever")
+}
+
+t.test("a catch does not dismiss its own taunt") {
+    // `.pecked` opens a taunt bubble; a `.startedMoving` in the same frame would
+    // close it instantly. The frame that catches the cursor must not emit both.
+    let config = GooseConfig(walksBeforeExit: 10_000...10_000, cursorReactRadius: 2000, peckRadius: 40)
+    var brain = makeBrain(config: config)
+    _ = brain.update(deltaTime: 0.1)
+    brain.aimCursor(at: brain.position) // sitting on the goose → a guaranteed catch
+
+    var foundPeck = false
+    var peckFrameAlsoMoved = false
     var elapsed: TimeInterval = 0
     let step = 1.0 / 60.0
-    while elapsed < 2 {
-        if pecked(in: brain.update(deltaTime: step)) { caught = true }
+    while elapsed < 5, !foundPeck {
+        let events = brain.update(deltaTime: step)
+        if pecked(in: events) {
+            foundPeck = true
+            peckFrameAlsoMoved = events.contains(.startedMoving)
+        }
         elapsed += step
     }
 
-    t.expect(charged, "the goose should charge a cursor beside it")
-    t.expect(!caught, "it should not peck a cursor that vanished")
-    t.expect(brain.state != .charging, "it should give up rather than charge forever")
+    t.expect(foundPeck, "the goose should peck a cursor sitting on it")
+    t.expect(!peckFrameAlsoMoved, "the peck frame must not also emit startedMoving, or the taunt dies instantly")
 }
 
 // MARK: - Determinism

@@ -150,10 +150,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case .honk:
             sounds.honk()
 
-        case .pecked:
-            // The satisfying "gotcha" — same honk for now; a sharper peck sound
-            // and a jab animation are a later polish.
-            sounds.honk()
+        case let .pecked(position):
+            // The satisfying "gotcha": a honk and a gloat. A sharper peck sound and a
+            // jab animation are a later polish.
+            presentBubble(TauntMessages.attributedCatch(), at: position)
+
+        case let .gaveUpChase(position):
+            // The chase fizzled — the goose saves face with a parting threat.
+            presentBubble(TauntMessages.attributedGiveUp(), at: position)
 
         case let .showReminder(position):
             presentReminder(at: position)
@@ -175,10 +179,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func presentReminder(at localPoint: CGPoint) {
+        presentBubble(ReminderMessages.attributed(), at: localPoint)
+    }
+
+    /// Pops a speech bubble above the goose's feet and honks. Shared by reminders and
+    /// the cursor-chase taunts.
+    private func presentBubble(_ message: NSAttributedString, at localPoint: CGPoint) {
         guard let artStyle else { return }
 
         let bubble = MessageBubble(
-            message: ReminderMessages.attributed(),
+            message: message,
             style: artStyle,
             gooseFeet: screenPoint(from: localPoint),
             gooseHeight: gooseHeight

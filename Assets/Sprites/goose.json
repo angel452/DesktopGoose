@@ -38,6 +38,30 @@
       "framesPerSecond" : 6,
       "loops" : true,
       "name" : "drag"
+    },
+    {
+      "frames" : [
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23
+      ],
+      "framesPerSecond" : 10,
+      "loops" : true,
+      "name" : "angry_walk"
+    },
+    {
+      "frames" : [
+        24,
+        25
+      ],
+      "framesPerSecond" : 2,
+      "loops" : true,
+      "name" : "angry_idle"
     }
   ],
   "columns" : 5,

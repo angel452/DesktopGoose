@@ -80,7 +80,7 @@ public struct GooseBrain<RNG: RandomNumberGenerator> {
         refreshCursorArming()
         advanceReminderClocks(deltaTime: deltaTime)
         startDeliveryIfDue(&events)
-        startChargeIfProvoked(&events)
+        startAlertIfProvoked(&events)
 
         switch state {
         case .idle:
@@ -102,6 +102,8 @@ public struct GooseBrain<RNG: RandomNumberGenerator> {
                 events.append(.startedMoving)
                 beginIdle()
             }
+        case .alerting:
+            advanceAlert(deltaTime: deltaTime, events: &events)
         case .charging:
             advanceCharge(deltaTime: deltaTime, events: &events)
         case .walking, .leaving, .returning, .deliveringExit, .deliveringEntry:
@@ -127,8 +129,8 @@ public struct GooseBrain<RNG: RandomNumberGenerator> {
         }
     }
 
-    private mutating func startChargeIfProvoked(_ events: inout [GooseEvent]) {
-        // Ambush only from ordinary on-screen wandering, once the cooldown elapsed,
+    private mutating func startAlertIfProvoked(_ events: inout [GooseEvent]) {
+        // Lock on only from ordinary on-screen wandering, once the cooldown elapsed,
         // once re-armed, and only for a cursor on this same screen.
         guard cursorCooldownRemaining <= 0, cursorArmed,
               state == .idle || state == .walking,
@@ -138,7 +140,18 @@ public struct GooseBrain<RNG: RandomNumberGenerator> {
         let dy = cursor.y - position.y
         let dist = (dx * dx + dy * dy).squareRoot()
         if dist <= config.cursorReactRadius {
-            beginCharge(instantCatch: dist <= config.peckRadius, events: &events)
+            beginAlert(&events)
+        }
+    }
+
+    private mutating func advanceAlert(deltaTime: TimeInterval, events: inout [GooseEvent]) {
+        timer -= deltaTime
+        // Glare at the cursor the whole stare — tracking it even as the human bolts.
+        faceCursor()
+        // The stare is a committed telegraph: once it locks on it always charges, so
+        // the escape happens during the chase, not by slipping away during the glare.
+        if timer <= 0 {
+            beginCharge(&events)
         }
     }
 
@@ -170,23 +183,39 @@ public struct GooseBrain<RNG: RandomNumberGenerator> {
         }
     }
 
-    private mutating func beginCharge(instantCatch: Bool, events: inout [GooseEvent]) {
+    private mutating func beginAlert(_ events: inout [GooseEvent]) {
         facesBackward = false
+        // Disarm now so the whole alert→charge sequence counts as one reaction; the
+        // goose re-arms only once the cursor leaves its space (see refreshCursorArming).
         cursorArmed = false
+        timer = config.cursorStareDuration
+        state = .alerting
+        faceCursor()
+        // An angry alarm the moment it locks on — the audible half of the telegraph.
+        events.append(.honk)
+    }
+
+    private mutating func beginCharge(_ events: inout [GooseEvent]) {
+        facesBackward = false
         timer = config.chargeDuration
         state = .charging
-        // No alarm hiss when the cursor is already in pecking range: the peck honk
-        // lands this same frame and would double it.
-        if !instantCatch { events.append(.honk) }
         events.append(.startedMoving)
     }
 
     private mutating func endCharge(caught: Bool, events: inout [GooseEvent]) {
-        // A sharp peck when it lands, an annoyed huff when the cursor got away.
-        events.append(caught ? .pecked(position: position) : .honk)
+        // A sharp peck and a gloat when it lands, a parting threat when it got away.
+        // The goose then stands idle to show its taunt — no `.startedMoving` here, or
+        // it would dismiss the very bubble the taunt just opened this same frame.
+        events.append(caught ? .pecked(position: position) : .gaveUpChase(position: position))
         cursorCooldownRemaining = config.cursorCooldown
         beginIdle()
-        events.append(.startedMoving)
+    }
+
+    /// Turns the goose to look at the cursor, if its horizontal offset is meaningful.
+    private mutating func faceCursor() {
+        guard let cursor = cursorPosition else { return }
+        let dx = cursor.x - position.x
+        if abs(dx) > 0.01 { facingLeft = dx < 0 }
     }
 
     // MARK: - Reminders
@@ -311,7 +340,7 @@ public struct GooseBrain<RNG: RandomNumberGenerator> {
             // Reached the centre; stand and show the reminder.
             beginPresenting(&events)
 
-        case .idle, .offscreen, .presenting, .charging:
+        case .idle, .offscreen, .presenting, .alerting, .charging:
             break
         }
     }

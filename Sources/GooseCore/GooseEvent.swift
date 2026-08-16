@@ -19,6 +19,9 @@ public enum GooseState: Equatable, Sendable {
     case deliveringEntry
     /// Standing at the centre while the reminder is on screen.
     case presenting
+    /// Locked onto an invading cursor, glaring it down before the charge — the
+    /// telegraph that gives the human a moment to run.
+    case alerting
     /// Charging at a cursor that invaded its personal space.
     case charging
 }
@@ -31,8 +34,11 @@ public enum GooseEvent: Equatable, Sendable {
     case footprint(position: CGPoint, muddy: Bool)
     /// Honk.
     case honk
-    /// The goose caught the cursor with a peck, at this position.
+    /// The goose caught the cursor with a peck, at this position. Carries a taunt.
     case pecked(position: CGPoint)
+    /// The goose ran out of chase and gave up, at this position — earning the cursor
+    /// a parting threat rather than a peck.
+    case gaveUpChase(position: CGPoint)
     /// The goose arrived at the centre with a reminder to show at `position`.
     case showReminder(position: CGPoint)
     /// The goose stopped standing around and set off again. Anything that was only

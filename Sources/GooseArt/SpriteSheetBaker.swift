@@ -110,7 +110,8 @@ public enum SpriteSheetBaker {
             anchorX: Double(artwork.anchor.x) * renderScale,
             anchorY: Double(artwork.anchor.y) * renderScale,
             pixelArt: isPixelArt,
-            clips: [GooseClip.walk, GooseClip.idle, GooseClip.drag].compactMap { artwork.clip(named: $0) }
+            clips: [GooseClip.walk, GooseClip.idle, GooseClip.drag, GooseClip.angryWalk, GooseClip.angryIdle]
+                .compactMap { artwork.clip(named: $0) }
         )
 
         let encoder = JSONEncoder()

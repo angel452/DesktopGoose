@@ -32,6 +32,20 @@ public struct ProceduralArtwork: GooseArtwork {
                 frames: Array(Self.walkFrameCount..<(Self.walkFrameCount + Self.idleFrameCount)),
                 framesPerSecond: 4
             )
+        // The vector fallback has no angry pose; it reuses the plain motion so the
+        // charge still animates when no baked sheet is present.
+        case GooseClip.angryWalk:
+            return AnimationClip(
+                name: GooseClip.angryWalk,
+                frames: Array(0..<Self.walkFrameCount),
+                framesPerSecond: 14
+            )
+        case GooseClip.angryIdle:
+            return AnimationClip(
+                name: GooseClip.angryIdle,
+                frames: Array(Self.walkFrameCount..<(Self.walkFrameCount + Self.idleFrameCount)),
+                framesPerSecond: 4
+            )
         default:
             return nil
         }
