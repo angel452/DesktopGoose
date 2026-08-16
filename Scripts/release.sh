@@ -6,8 +6,9 @@
 #   ./Scripts/release.sh            # build + zip into build/, then print next steps
 #   ./Scripts/release.sh v0.2.0     # also publish a GitHub Release under that tag
 #
-# The zip is ad-hoc signed (no Developer ID), so first launch needs a right-click →
-# Open. See docs/RELEASING.md for the full flow and when to cut a release.
+# The zip is ad-hoc signed (no Developer ID), so first launch needs a one-time
+# approval in System Settings > Privacy & Security > Open Anyway. See
+# docs/RELEASING.md for the full flow and when to cut a release.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -47,6 +48,8 @@ gh release create "$TAG" "$ZIP" \
     --title "Desktop Goose $TAG" \
     --notes "Download **DesktopGoose-${VERSION}.zip**, unzip, and drag the app to /Applications.
 
-First launch: **right-click the app → Open** (it is ad-hoc signed, so Gatekeeper needs a one-time bypass). After that, double-click as usual. The goose lives in the menu bar as 🪿 — quit it from there."
+**First launch:** double-click it, then approve it once in **System Settings → Privacy & Security → Open Anyway** (the app is ad-hoc signed, so Gatekeeper asks the first time — the old right-click → Open shortcut was removed in macOS 15). After that, double-click as usual. Prefer the Terminal? \`xattr -dr com.apple.quarantine /Applications/DesktopGoose.app\` does the same.
+
+The goose lives in the menu bar as 🪿 — quit it from there. Universal build: runs on Apple Silicon and Intel."
 
 echo "==> Published: $TAG"

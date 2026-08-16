@@ -6,22 +6,36 @@ drops memes and honks.
 
 Built with Swift + AppKit. **No Xcode required** — the Command Line Tools are enough.
 
-## Get the goose (no build needed)
+## Install (no build needed)
 
-Grab the latest **[Release](https://github.com/angel452/DesktopGoose/releases)**,
-unzip it, and drag **Desktop Goose.app** to your Applications folder. First launch:
-**right-click the app → Open** — it is ad-hoc signed, so macOS asks for confirmation
-once. After that, double-click like any app.
+1. Download the **DesktopGoose zip** from the
+   [latest Release](https://github.com/angel452/DesktopGoose/releases/latest).
+2. Unzip it and drag **DesktopGoose.app** into your **Applications** folder.
+3. **Double-click it.** The first time, macOS blocks it and says it "could not
+   verify" the app. That is expected — the app is free and self-signed, not
+   paid-notarised. It is not a virus.
+4. Approve it once: open **System Settings → Privacy & Security**, scroll to the
+   bottom, and click **Open Anyway** next to the Desktop Goose message. Confirm with
+   your password or Touch ID.
+5. That is it. From now on it opens like any app — double-click, or **⌘-Space →
+   "Desktop Goose"**.
 
-It runs with no terminal open. There is no Dock icon or window; it lives in the menu
-bar as 🪿, and you quit it from there. The download is a universal build, so it works
-on both Apple Silicon and Intel Macs.
+> Prefer the Terminal? One line does the same as steps 3–4:
+> ```sh
+> xattr -dr com.apple.quarantine /Applications/DesktopGoose.app
+> ```
+
+The goose runs with **no terminal open** and no window. It lives in the menu bar as
+🪿 — click it to quit. The download is universal, so it runs on both Apple Silicon
+and Intel Macs.
 
 Prefer to build it yourself? Read on.
 
-## Requirements
+## Requirements (to build it yourself)
 
-- macOS 14 or later
+Downloading the app needs nothing but macOS 14 or later. To build from source you
+also need:
+
 - Xcode Command Line Tools — `xcode-select --install`
 
 That is the whole list. AppKit ships with macOS, and the goose is drawn in code, so
@@ -307,9 +321,21 @@ mud antialiased looked like a rendering bug, and it was — a self-inflicted one
   muddy all reuse them.
 - Speech bubbles point at where the goose stood when it spoke. They do not follow
   it as it walks away.
-- Ad-hoc signed, so the first launch of a downloaded build needs a right-click →
-  Open. Releases ship a universal (arm64 + x86_64) build; a Developer ID and
-  notarisation would remove the one-time bypass but are not required to distribute.
+- Ad-hoc signed, so the first launch of a downloaded build needs a one-time
+  approval in **System Settings → Privacy & Security → Open Anyway** (the old
+  right-click → Open shortcut was removed in macOS 15). Releases ship a universal
+  (arm64 + x86_64) build; a Developer ID and notarisation would remove the extra
+  step but are not required to distribute.
 - The overlay is click-through by design, so the goose cannot be picked up or
   interacted with. Grabbing other apps' windows would require the Accessibility
   API and its permission prompt.
+
+## Stay updated
+
+New geese ship as [Releases](https://github.com/angel452/DesktopGoose/releases) — a
+fresh download whenever the goose learns a new trick.
+
+- ⭐ **Star** the repo, and **Watch → Custom → Releases** to get pinged when a new
+  build lands.
+- 👤 **Follow [@angel452](https://github.com/angel452)** to keep up with this and
+  whatever hatches next.

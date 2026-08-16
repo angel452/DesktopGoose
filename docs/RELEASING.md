@@ -20,9 +20,10 @@ only the Command Line Tools — each architecture is compiled on its own and mer
 with `lipo`, because the combined `--arch a --arch b` form needs full Xcode.
 
 The app is **ad-hoc signed** (no Apple Developer ID, no notarisation). That is free,
-but Gatekeeper blocks it on first launch, so users right-click → Open once. Paying
-for a Developer ID + notarisation is the only way to remove that step; it is a
-nice-to-have, not a requirement.
+but Gatekeeper blocks it on first launch, so users approve it once via **System
+Settings → Privacy & Security → Open Anyway** (macOS 15 removed the old right-click →
+Open shortcut). Paying for a Developer ID + notarisation is the only way to remove
+that step; it is a nice-to-have, not a requirement.
 
 ## Cutting a Release
 
@@ -43,7 +44,7 @@ nice-to-have, not a requirement.
    ```
 
 `release.sh v<tag>` runs `gh release create`, uploads the zip, and writes the
-right-click-to-Open instructions into the Release notes. It needs the `gh` CLI
+first-launch instructions into the Release notes. It needs the `gh` CLI
 authenticated against this repo.
 
 ## The instructions users get
@@ -51,6 +52,7 @@ authenticated against this repo.
 Baked into the Release notes:
 
 > Download `DesktopGoose-<version>.zip`, unzip, and drag the app to `/Applications`.
-> First launch: **right-click the app → Open** (ad-hoc signed, so Gatekeeper needs a
-> one-time bypass). After that, double-click as usual. The goose lives in the menu
-> bar as 🪿 — quit it from there.
+> First launch: double-click it, then approve it once in **System Settings → Privacy
+> & Security → Open Anyway** (ad-hoc signed, so Gatekeeper needs a one-time bypass).
+> After that, double-click as usual. The goose lives in the menu bar as 🪿 — quit it
+> from there.
