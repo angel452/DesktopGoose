@@ -600,4 +600,6 @@ t.test("every line bank has something to say") {
     t.expect(!GooseLines.onGiveUp.isEmpty, "give-up bank is empty")
 }
 
+runPixelTests(t)
+
 t.finish()

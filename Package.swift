@@ -6,9 +6,13 @@ var targets: [Target] = [
     // Pure, testable behaviour. No AppKit, no windows, no clock of its own.
     .target(name: "GooseCore"),
 
+    // Pure software raster and screen layout in y-down physical pixels: what the
+    // Windows app draws, kept here so it is tested on every platform.
+    .target(name: "GoosePixels", dependencies: ["GooseCore"]),
+
     // Runs as an executable, not a testTarget: XCTest and swift-testing both
     // require a full Xcode install. `swift run GooseCoreTests`
-    .executableTarget(name: "GooseCoreTests", dependencies: ["GooseCore"]),
+    .executableTarget(name: "GooseCoreTests", dependencies: ["GooseCore", "GoosePixels"]),
 ]
 
 #if os(macOS)
