@@ -26,6 +26,12 @@ let trayProcedure: WNDPROC = { window, message, wParam, lParam in
             app?.tray?.showMenu(owner: window)
         }
         return 0
+    case wmCommand:
+        // A menu pick arrives here; its identifier is the low word of wParam.
+        if let command = TrayCommand(rawValue: Int32(wParam & 0xFFFF)) {
+            app?.perform(command)
+        }
+        return 0
     case wmDestroy:
         PostQuitMessage(0)
         return 0
@@ -88,16 +94,10 @@ final class TrayIcon {
         GetCursorPos(&cursor)
         // Without this the menu refuses to close when the human clicks elsewhere.
         SetForegroundWindow(owner)
-        let chosen = TrackPopupMenu(
-            menu,
-            tpmReturnCmd | tpmNoNotify | tpmRightButton,
-            cursor.x, cursor.y, 0, owner, nil
-        )
+        // The pick comes back as WM_COMMAND to the owner: TrackPopupMenu's return
+        // value imports as a Bool in Swift, so TPM_RETURNCMD cannot carry the id.
+        TrackPopupMenu(menu, tpmRightButton, cursor.x, cursor.y, 0, owner, nil)
         PostMessageW(owner, wmNull, 0, 0)
-
-        if let command = TrayCommand(rawValue: chosen) {
-            app?.perform(command)
-        }
     }
 
     /// A 32-bit alpha icon from a goose frame, sized for the tray.
@@ -124,7 +124,7 @@ final class TrayIcon {
         guard let color = CreateBitmap(Int32(width), Int32(height), 1, 32, surface.bits) else { return nil }
         defer { DeleteObject(color) }
 
-        var info = ICONINFO(fIcon: 1, xHotspot: 0, yHotspot: 0, hbmMask: mask, hbmColor: color)
+        var info = ICONINFO(fIcon: true, xHotspot: 0, yHotspot: 0, hbmMask: mask, hbmColor: color)
         return CreateIconIndirect(&info)
     }
 }

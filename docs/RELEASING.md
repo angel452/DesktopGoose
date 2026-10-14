@@ -25,6 +25,17 @@ Settings → Privacy & Security → Open Anyway** (macOS 15 removed the old righ
 Open shortcut). Paying for a Developer ID + notarisation is the only way to remove
 that step; it is a nice-to-have, not a requirement.
 
+### Windows
+
+`release.sh` also attaches `build/DesktopGoose-windows-<version>.zip`. A Mac cannot
+compile the Windows app, so the script downloads it from **CI**: the
+`DesktopGoose-windows` artifact of the green `CI` run for exactly the commit being
+released (the exe, the Swift and C++ runtime DLLs it needs, `Assets/` and a
+`README.txt`). If that commit has no green CI run, the script stops before
+publishing anything — push, wait for CI, and run it again.
+
+The exe is unsigned, so Windows SmartScreen asks once: **More info → Run anyway**.
+
 ## Cutting a Release
 
 **The common case is three lines** — bump the version, commit and push, run the
@@ -47,7 +58,8 @@ script. Everything, in order:
    middle one).
 
 4. **Commit and push** everything (never `CLAUDE.md` — it is local-only), so the tag
-   the Release creates points at code that is actually on GitHub.
+   the Release creates points at code that is actually on GitHub. **Wait for CI to
+   go green** on that commit (`gh run watch`) — it builds the Windows zip.
 
 5. **Build, zip, and publish** — one command. The tag must match the version you set
    in step 3:

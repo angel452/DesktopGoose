@@ -1,10 +1,11 @@
-# Desktop Goose (macOS)
+# Desktop Goose (macOS & Windows)
 
 A goose that lives on your screen. It wanders around, occasionally walks off the
 edge, comes back with muddy feet, tracks prints across everything you are doing,
 drops memes and honks.
 
-Built with Swift + AppKit. **No Xcode required** — the Command Line Tools are enough.
+Built with Swift + AppKit on the Mac and Swift + Win32 on Windows, sharing one
+goose brain. **No Xcode required** — the Command Line Tools are enough.
 
 ## Install (no build needed)
 
@@ -30,6 +31,24 @@ The goose runs with **no terminal open** and no window. It lives in the menu bar
 and Intel Macs.
 
 Prefer to build it yourself? Read on.
+
+## Install on Windows (no build needed)
+
+1. Download the **DesktopGoose-windows zip** from the
+   [latest Release](https://github.com/angel452/DesktopGoose/releases/latest).
+2. Unzip it anywhere and keep the folder together — the exe needs the `.dll` files
+   and the `Assets` folder next to it.
+3. Double-click **DesktopGoose.exe**. If SmartScreen says "Windows protected your
+   PC", click **More info → Run anyway**. It only asks once; the app is free and
+   unsigned, not a virus.
+4. The goose lives in the **system tray** next to the clock (click the `^` arrow if
+   it is hidden). Click it to take a break, shoo the memes, or quit.
+
+The Windows build is made by CI on `windows-latest` (a Mac cannot compile it): every
+push runs `.github/workflows/ci.yml`, which builds, tests and uploads a ready-to-run
+`DesktopGoose-windows` artifact. To build it yourself on Windows, install the
+[Swift toolchain](https://www.swift.org/install/windows/) and run
+`swift build -c release --product DesktopGooseWin` or `swift run DesktopGooseWin`.
 
 ## Requirements (to build it yourself)
 
@@ -123,6 +142,15 @@ Sources/
     MemeWindow.swift    Floating meme window; click or wait to dismiss.
     SoundBank.swift     Honks from Assets/Sounds, with a system-sound fallback.
     Assets.swift        Locates Assets/ in the bundle or the working directory.
+  GoosePixels/        Pure y-down pixel raster and layout. What Windows draws.
+    PixelCanvas.swift         Premultiplied BGRA buffer: fills and sprite blits.
+    SpriteFrames.swift        Slicing a sheet; whole-pixel sizing per display scale.
+    Footprints.swift          The muddy webbed foot and the ageing trail.
+    Bubble.swift              The pixel speech bubble, rasterised.
+    ScreenLayout.swift        Brain y-up points to screen y-down pixels; placements.
+    ImageLoading.swift        PNG/JPEG/GIF/BMP via stb_image, no platform framework.
+  CStbImage/          Vendored stb_image (public domain) behind a tiny C wrapper.
+  DesktopGooseWin/    The Windows app: Win32 adapter, layered windows, tray icon.
   BakeSprites/        Command that bakes the sprite sheet.
   GooseCoreTests/     Executable test suite.
 Assets/
@@ -142,6 +170,8 @@ docs/RELEASING.md     How and when to ship a build to non-dev users.
 The split is the point. `GooseCore` decides what the goose does and is fully
 testable without opening a window. `GooseArt` decides what it looks like and is
 shared by the app and the baker. `DesktopGoose` only wires them together.
+`GoosePixels` is the Windows twin of `GooseArt`, but pure — so its drawing rules are
+tested on the Mac too — and `DesktopGooseWin` is as thin an adapter as `DesktopGoose`.
 
 ## Sprites
 
@@ -313,6 +343,11 @@ This is easy to break by halves. Changing the goose to pixel art while leaving t
 mud antialiased looked like a rendering bug, and it was — a self-inflicted one.
 
 ## Known limits
+
+- **Windows:** the main monitor only, at the system DPI. Bubble text is drawn with
+  GDI, which renders emoji in monochrome or not at all. Honks must be `.wav`
+  (`PlaySound`); memes PNG, JPEG, GIF (first frame) or BMP. Unsigned, so SmartScreen
+  asks once.
 
 - Runs on the main screen only; multi-monitor support means one overlay per screen.
 - The shipped sheet is baked from `PixelArtwork`, not hand-drawn by an artist. It

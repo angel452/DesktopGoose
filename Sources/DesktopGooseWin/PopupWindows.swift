@@ -188,7 +188,7 @@ final class MemeWindow {
         let style = wsPopup | wsCaption | wsSysMenu
         let exStyle = wsExTopmost | wsExToolWindow
         var frame = RECT(left: 0, top: 0, right: LONG(fitted.width), bottom: LONG(fitted.height))
-        AdjustWindowRectEx(&frame, style, 0, exStyle)
+        AdjustWindowRectEx(&frame, style, false, exStyle)
         outerWidth = Int(frame.right - frame.left)
         outerHeight = Int(frame.bottom - frame.top)
 

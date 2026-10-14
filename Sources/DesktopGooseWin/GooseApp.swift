@@ -78,7 +78,7 @@ final class GooseApp {
         lastTick = now
 
         var cursor = POINT()
-        if GetCursorPos(&cursor) != 0 {
+        if GetCursorPos(&cursor).boolValue {
             let local = screen.toBrain(x: Int(cursor.x), y: Int(cursor.y))
             brain.aimCursor(at: CGPoint(x: local.x, y: local.y))
         }

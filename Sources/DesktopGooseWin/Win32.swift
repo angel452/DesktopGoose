@@ -26,6 +26,7 @@ let wmLButtonDown: UINT = 0x0201
 let wmLButtonUp: UINT = 0x0202
 let wmRButtonUp: UINT = 0x0205
 let wmContextMenu: UINT = 0x007B
+let wmCommand: UINT = 0x0111
 let wmApp: UINT = 0x8000
 let maNoActivate: LRESULT = 3
 
