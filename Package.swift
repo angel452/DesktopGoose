@@ -8,7 +8,10 @@ var targets: [Target] = [
 
     // Pure software raster and screen layout in y-down physical pixels: what the
     // Windows app draws, kept here so it is tested on every platform.
-    .target(name: "GoosePixels", dependencies: ["GooseCore"]),
+    .target(name: "GoosePixels", dependencies: ["GooseCore", "CStbImage"]),
+
+    // stb_image, vendored: PNG/JPEG/GIF/BMP decoding with no platform framework.
+    .target(name: "CStbImage"),
 
     // Runs as an executable, not a testTarget: XCTest and swift-testing both
     // require a full Xcode install. `swift run GooseCoreTests`

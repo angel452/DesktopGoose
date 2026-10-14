@@ -1,3 +1,4 @@
+import Foundation
 import GooseCore
 import GoosePixels
 
@@ -90,6 +91,23 @@ func runPixelTests(_ t: TestRunner) {
         t.expectEqual(metrics.frameOrigin(facingLeft: false).x, 12, "right-facing frame")
         t.expectEqual(metrics.frameOrigin(facingLeft: true).x, 0, "left-facing frame")
         t.expectEqual(metrics.gooseHeight, 72, "head height above feet")
+    }
+
+    t.test("the shipped sprite sheet decodes and slices without a platform framework") {
+        let directory = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+            .appendingPathComponent("Assets/Sprites", isDirectory: true)
+        guard let sheet = SpriteSheet(directory: directory) else {
+            t.fail("Assets/Sprites did not load — run the suite from the package root")
+            return
+        }
+        t.expectEqual(sheet.frames.first?.width ?? 0, sheet.manifest.frameWidth, "frame width")
+        t.expect(sheet.frames.contains { frame in frame.pixels.contains { $0 >> 24 != 0 } }, "frames are blank")
+        t.expectEqual(sheet.clipOrFallback(named: "no-such-clip").name, GooseClip.idle, "missing clip falls back to idle")
+    }
+
+    t.test("bytes that are not an image are rejected") {
+        t.expect(ImageDecoder.decode([0x00, 0x01, 0x02, 0x03]) == nil, "garbage decoded")
+        t.expect(ImageDecoder.decode([]) == nil, "empty decoded")
     }
 
     // MARK: Footprints
