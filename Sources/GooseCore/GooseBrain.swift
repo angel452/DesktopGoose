@@ -1,4 +1,6 @@
+#if canImport(CoreGraphics)
 import CoreGraphics
+#endif
 import Foundation
 
 /// The goose's behaviour, expressed as a state machine advanced by elapsed time.

@@ -1,4 +1,6 @@
+#if canImport(CoreGraphics)
 import CoreGraphics
+#endif
 import Foundation
 import GooseCore
 
@@ -588,6 +590,14 @@ t.test("a manifest converts pixels to points using its scale") {
 
     t.expectEqual(manifest.frameSize.width, 120, "frame width in points")
     t.expectEqual(manifest.anchor.x, 52, "anchor x in points")
+}
+
+// MARK: - Lines
+
+t.test("every line bank has something to say") {
+    t.expect(!GooseLines.reminders.isEmpty, "reminder bank is empty")
+    t.expect(!GooseLines.onCatch.isEmpty, "catch bank is empty")
+    t.expect(!GooseLines.onGiveUp.isEmpty, "give-up bank is empty")
 }
 
 t.finish()
