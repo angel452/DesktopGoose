@@ -27,3 +27,5 @@ jobs:
         run: swift build
       - name: Test
         run: swift run GooseCoreTests
+      - name: Build release app
+        run: swift build -c release --product DesktopGooseWin

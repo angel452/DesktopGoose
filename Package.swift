@@ -51,6 +51,30 @@ targets += [
 ]
 #endif
 
+#if os(Windows)
+targets += [
+    // The Windows app: layered overlay windows, a tray icon and a 60 Hz timer,
+    // all a thin Win32 adapter around GooseCore and GoosePixels.
+    .executableTarget(
+        name: "DesktopGooseWin",
+        dependencies: ["GooseCore", "GoosePixels"],
+        swiftSettings: [.swiftLanguageMode(.v5)],
+        linkerSettings: [
+            .linkedLibrary("user32"),
+            .linkedLibrary("gdi32"),
+            .linkedLibrary("shell32"),
+            .linkedLibrary("winmm"),
+            // Release builds are a GUI app: no console window opens behind the
+            // goose. Debug keeps the console so `swift run` still shows logs.
+            .unsafeFlags(
+                ["-Xlinker", "/SUBSYSTEM:WINDOWS", "-Xlinker", "/ENTRY:mainCRTStartup"],
+                .when(configuration: .release)
+            ),
+        ]
+    ),
+]
+#endif
+
 let package = Package(
     name: "DesktopGoose",
     platforms: [.macOS(.v14)],

@@ -52,6 +52,19 @@ func runPixelTests(_ t: TestRunner) {
         t.expect(PixelImage(width: 2, height: 2, rgba: [0, 0, 0, 0]) == nil, "short buffer accepted")
     }
 
+    t.test("nearest-neighbour scaling keeps hard edges") {
+        let image = PixelImage(width: 2, height: 1, pixels: [opaqueRed, 0])
+        let scaled = image.scaledNearest(width: 4, height: 2)
+        t.expectEqual(scaled.pixels, [opaqueRed, opaqueRed, 0, 0, opaqueRed, opaqueRed, 0, 0], "doubled")
+        t.expectEqual(scaled.scaledNearest(width: 2, height: 1), image, "and back down")
+    }
+
+    t.test("flattening onto white makes every pixel opaque") {
+        let image = PixelImage(width: 2, height: 1, pixels: [0, opaqueRed]).flattenedOnWhite()
+        t.expectEqual(image.pixel(x: 0, y: 0), 0xFFFF_FFFF, "transparent becomes white")
+        t.expectEqual(image.pixel(x: 1, y: 0), opaqueRed, "opaque is untouched")
+    }
+
     // MARK: Sprites
 
     let sheetManifest = SpriteSheetManifest(

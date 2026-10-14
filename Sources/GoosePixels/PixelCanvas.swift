@@ -60,6 +60,33 @@ public struct PixelImage: Equatable, Sendable {
         pixels[y * width + x]
     }
 
+    /// Resampled to `width` × `height` by nearest neighbour, which keeps pixel art
+    /// hard-edged — used for the tray icon.
+    public func scaledNearest(width: Int, height: Int) -> PixelImage {
+        let width = max(width, 1)
+        let height = max(height, 1)
+        var scaled = [UInt32](repeating: 0, count: width * height)
+        for row in 0..<height {
+            let sourceRow = min(row * self.height / height, self.height - 1)
+            for column in 0..<width {
+                let sourceColumn = min(column * self.width / width, self.width - 1)
+                scaled[row * width + column] = pixels[sourceRow * self.width + sourceColumn]
+            }
+        }
+        return PixelImage(width: width, height: height, pixels: scaled)
+    }
+
+    /// Composited onto opaque white, for surfaces that cannot show transparency —
+    /// a meme in an ordinary window, above all.
+    public func flattenedOnWhite() -> PixelImage {
+        let white = PixelColor.white.premultiplied
+        return PixelImage(
+            width: width,
+            height: height,
+            pixels: pixels.map { PixelCanvas.over($0, white) }
+        )
+    }
+
     /// A sub-rectangle, or `nil` when the rectangle leaves the image.
     public func cropped(x: Int, y: Int, width: Int, height: Int) -> PixelImage? {
         guard x >= 0, y >= 0, width > 0, height > 0,
