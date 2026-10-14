@@ -112,8 +112,12 @@ final class TrayIcon {
         square.blit(image, x: (edge - image.width) / 2, y: (edge - image.height) / 2)
         let scaled = square.image.scaledNearest(width: width, height: height)
 
+        // An all-zero mask: with a 32-bit colour bitmap the alpha channel decides
+        // the shape, but the mask must still exist and be defined.
+        let maskRowBytes = (width + 15) / 16 * 2
+        let maskBits = [UInt8](repeating: 0, count: maskRowBytes * height)
         guard let surface = LayeredSurface(width: width, height: height),
-              let mask = CreateBitmap(Int32(width), Int32(height), 1, 1, nil)
+              let mask = CreateBitmap(Int32(width), Int32(height), 1, 1, maskBits)
         else { return nil }
         defer { DeleteObject(mask) }
 
@@ -121,10 +125,11 @@ final class TrayIcon {
         canvas.blit(scaled, x: 0, y: 0)
         surface.copy(canvas)
 
-        guard let color = CreateBitmap(Int32(width), Int32(height), 1, 32, surface.bits) else { return nil }
-        defer { DeleteObject(color) }
-
-        var info = ICONINFO(fIcon: true, xHotspot: 0, yHotspot: 0, hbmMask: mask, hbmColor: color)
-        return CreateIconIndirect(&info)
+        // The surface's DIB section is the colour bitmap: a 32-bit DIB is what
+        // CreateIconIndirect needs to keep per-pixel alpha.
+        return surface.withDetachedBitmap { color in
+            var info = ICONINFO(fIcon: true, xHotspot: 0, yHotspot: 0, hbmMask: mask, hbmColor: color)
+            return CreateIconIndirect(&info)
+        }
     }
 }

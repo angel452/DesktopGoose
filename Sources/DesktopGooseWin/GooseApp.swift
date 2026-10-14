@@ -46,8 +46,10 @@ final class GooseApp {
         }
 
         metrics = PixelMetrics(manifest: sheet.manifest, displayScale: displayScale)
-        guard let goose = GooseOverlay(sheet: sheet, metrics: metrics),
-              let mud = MudOverlay(screen: screen, pixel: metrics.artPixel)
+        // Mud first: Windows stacks a newer always-on-top window above older ones,
+        // and the prints must stay under the bird.
+        guard let mud = MudOverlay(screen: screen, pixel: metrics.artPixel),
+              let goose = GooseOverlay(sheet: sheet, metrics: metrics)
         else { return nil }
 
         self.goose = goose
@@ -66,6 +68,9 @@ final class GooseApp {
         tray = TrayIcon(owner: trayWindow, image: icon)
         // ~60 Hz. The real elapsed time is measured each tick, so timer jitter never
         // changes how fast the goose walks.
+        // The default 15.6 ms timer resolution would round 16 ms up to ~31 ms and
+        // halve the frame rate; ask for 1 ms while the goose runs.
+        timeBeginPeriod(1)
         SetTimer(trayWindow, tickTimerID, 16, nil)
     }
 
@@ -196,7 +201,9 @@ final class GooseApp {
             return
         }
 
-        if let meme = draggingMeme {
+        // Closed mid-delivery? It stays the delivery's meme — no second one pops up,
+        // the same as on the Mac — there is just nothing left to drag.
+        if let meme = draggingMeme, IsWindow(meme.window) {
             place(meme, feetX: feetX, feetY: feetY)
         }
     }
@@ -221,7 +228,6 @@ final class GooseApp {
     /// Fires on every close path — the X button, Alt+F4, or "Shoo the Memes".
     func memeClosed(_ window: HWND) {
         memes.removeAll { $0.window == window }
-        if draggingMeme?.window == window { draggingMeme = nil }
     }
 
     // MARK: - Tray
@@ -238,6 +244,7 @@ final class GooseApp {
             memes.removeAll()
         case .quit:
             KillTimer(trayWindow, tickTimerID)
+            timeEndPeriod(1)
             tray?.remove()
             DestroyWindow(trayWindow)
         }

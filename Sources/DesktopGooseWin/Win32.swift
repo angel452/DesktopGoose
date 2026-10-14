@@ -62,8 +62,6 @@ let nifTip: UINT = 0x04
 let mfString: UINT = 0x0000
 let mfSeparator: UINT = 0x0800
 let tpmRightButton: UINT = 0x0002
-let tpmNoNotify: UINT = 0x0080
-let tpmReturnCmd: UINT = 0x0100
 
 let dtCenter: UINT = 0x0001
 let dtVCenter: UINT = 0x0004
@@ -171,6 +169,14 @@ final class LayeredSurface {
         SelectObject(deviceContext, previous)
         DeleteObject(bitmap)
         DeleteDC(deviceContext)
+    }
+
+    /// Hands out the DIB while it is not selected into the memory DC, for APIs
+    /// that refuse a selected bitmap — `CreateIconIndirect`, for one.
+    func withDetachedBitmap<Result>(_ body: (HBITMAP) -> Result) -> Result {
+        SelectObject(deviceContext, previous)
+        defer { SelectObject(deviceContext, bitmap) }
+        return body(bitmap)
     }
 
     func copy(_ canvas: PixelCanvas) {
