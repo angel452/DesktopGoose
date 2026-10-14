@@ -28,7 +28,7 @@ app = GooseApp(trayWindow: trayWindow)
 guard app != nil else { exit(1) }
 
 var message = MSG()
-while GetMessageW(&message, nil, 0, 0).boolValue {
+while GetMessageW(&message, nil, 0, 0) {
     TranslateMessage(&message)
     DispatchMessageW(&message)
 }
