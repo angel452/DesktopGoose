@@ -55,19 +55,26 @@ public struct PixelMetrics: Equatable, Sendable {
 public enum SpriteFrames {
     /// Frames run left to right, top to bottom — the convention every sprite
     /// editor exports.
+    ///
+    /// A frame that runs past the sheet's edge keeps its slot, holding whatever
+    /// part of it the sheet has, so clip frame numbers never shift.
     public static func slice(_ sheet: PixelImage, manifest: SpriteSheetManifest) -> [PixelImage] {
         let columns = max(manifest.columns, 1)
-        guard manifest.frameWidth > 0, manifest.frameHeight > 0 else { return [] }
-        let rows = sheet.height / manifest.frameHeight
+        let width = manifest.frameWidth
+        let height = manifest.frameHeight
+        guard width > 0, height > 0 else { return [] }
+        let rows = sheet.height / height
         guard rows > 0 else { return [] }
 
-        return (0..<(rows * columns)).compactMap { index in
-            sheet.cropped(
-                x: (index % columns) * manifest.frameWidth,
-                y: (index / columns) * manifest.frameHeight,
-                width: manifest.frameWidth,
-                height: manifest.frameHeight
-            )
+        return (0..<(rows * columns)).map { index in
+            let x = (index % columns) * width
+            let y = (index / columns) * height
+            if let frame = sheet.cropped(x: x, y: y, width: width, height: height) {
+                return frame
+            }
+            var partial = PixelCanvas(width: width, height: height)
+            partial.blit(sheet, x: -x, y: -y)
+            return partial.image
         }
     }
 }

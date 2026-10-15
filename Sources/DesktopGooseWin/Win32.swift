@@ -21,6 +21,7 @@ let wmPaint: UINT = 0x000F
 let wmClose: UINT = 0x0010
 let wmNull: UINT = 0x0000
 let wmTimer: UINT = 0x0113
+let wmWindowPosChanged: UINT = 0x0047
 let wmMouseActivate: UINT = 0x0021
 let wmLButtonDown: UINT = 0x0201
 let wmLButtonUp: UINT = 0x0202

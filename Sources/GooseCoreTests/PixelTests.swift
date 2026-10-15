@@ -90,6 +90,18 @@ func runPixelTests(_ t: TestRunner) {
         t.expectEqual(frames[0].width, 42, "frame width")
     }
 
+    t.test("a frame running past the sheet's edge keeps every later frame in place") {
+        // 200 wide where 5 frames need 210: the last column is cut short.
+        var pixels = [UInt32](repeating: 0, count: 200 * 228)
+        // Mark the top-left pixel of the first frame on the second row.
+        pixels[38 * 200] = opaqueRed
+        let sheet = PixelImage(width: 200, height: 228, pixels: pixels)
+        let frames = SpriteFrames.slice(sheet, manifest: sheetManifest)
+        t.expectEqual(frames.count, 30, "a cut-short frame still takes its slot")
+        t.expectEqual(frames[5].pixel(x: 0, y: 0), opaqueRed, "frame 5 is still the second row's first")
+        t.expectEqual(frames[4].width, 42, "the cut-short frame keeps the frame size")
+    }
+
     t.test("art pixels round to whole screen pixels for the display scale") {
         t.expectEqual(PixelMetrics(manifest: sheetManifest, displayScale: 1).artPixel, 2, "100 %")
         t.expectEqual(PixelMetrics(manifest: sheetManifest, displayScale: 1.5).artPixel, 2, "150 %")

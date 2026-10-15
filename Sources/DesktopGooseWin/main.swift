@@ -5,8 +5,10 @@ import WinSDK
 /// callbacks and cannot capture anything.
 var app: GooseApp?
 
-// Work in physical pixels; the brain still thinks in logical points, so a 150 %
-// display gets a goose of the same apparent size and speed as a 100 % one.
+// Work in physical pixels; the brain still thinks in logical points, so the goose
+// walks at the same apparent speed at any display scale. Its size only roughly
+// follows the scale: art pixels round to whole screen pixels to stay crisp
+// (see PixelMetrics), so at 100 % it is a third larger than on the Mac.
 SetProcessDPIAware()
 
 registerClass(overlayClass, procedure: overlayProcedure)

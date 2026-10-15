@@ -40,7 +40,10 @@ enum AssetPaths {
               )
         else { return [] }
 
+        // Dot-files are skipped by name too: on Windows `.skipsHiddenFiles` only
+        // sees the hidden attribute, and macOS `._*` twins have none.
         return contents
+            .filter { !$0.lastPathComponent.hasPrefix(".") }
             .filter { extensions.contains($0.pathExtension.lowercased()) }
             .sorted { $0.lastPathComponent < $1.lastPathComponent }
     }

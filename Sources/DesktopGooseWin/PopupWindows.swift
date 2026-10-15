@@ -21,6 +21,15 @@ let memeProcedure: WNDPROC = { window, message, wParam, lParam in
     case wmPaint:
         app?.paintMeme(window)
         return 0
+    case wmWindowPosChanged:
+        // Only a change of stacking matters; the goose's own drag moves the meme
+        // with SWP_NOZORDER every tick.
+        if let position = UnsafePointer<WINDOWPOS>(bitPattern: Int(lParam)),
+           position.pointee.flags & swpNoZOrder == 0 {
+            app?.memeRestacked()
+        }
+        // The default handler still sends WM_MOVE and WM_SIZE.
+        return DefWindowProcW(window, message, wParam, lParam)
     case wmDestroy:
         app?.memeClosed(window)
         return 0

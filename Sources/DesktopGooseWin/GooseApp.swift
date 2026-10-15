@@ -23,6 +23,10 @@ final class GooseApp {
     private var memes: [MemeWindow] = []
     /// The meme being dragged in during a delivery, if any.
     private var draggingMeme: MemeWindow?
+    /// Whether this delivery already went to the meme bank. Set even when no meme
+    /// came back, so a delivery never opens a second one — after "Shoo the Memes",
+    /// say — and a failed lookup is not retried sixty times a second.
+    private var fetchedDeliveryMeme = false
 
     init?(trayWindow: HWND) {
         let dpi = GetDpiForSystem()
@@ -82,10 +86,15 @@ final class GooseApp {
         let deltaTime = min(now - lastTick, 0.1)
         lastTick = now
 
+        // GetCursorPos fails while the workstation is locked or a secure desktop
+        // such as UAC is up; the brain then forgets the cursor instead of chasing
+        // where it last was.
         var cursor = POINT()
         if GetCursorPos(&cursor) {
             let local = screen.toBrain(x: Int(cursor.x), y: Int(cursor.y))
             brain.aimCursor(at: CGPoint(x: local.x, y: local.y))
+        } else {
+            brain.aimCursor(at: nil)
         }
 
         let events = brain.update(deltaTime: deltaTime)
@@ -184,10 +193,12 @@ final class GooseApp {
         let carrying = brain.state == .deliveringEntry || brain.state == .presenting
         guard carrying else {
             draggingMeme = nil
+            fetchedDeliveryMeme = false
             return
         }
 
-        if draggingMeme == nil {
+        if !fetchedDeliveryMeme {
+            fetchedDeliveryMeme = true
             // No meme in the bank? The goose still delivers, just empty-handed.
             guard let url = AssetPaths.memeURLs().randomElement(),
                   let image = ImageDecoder.load(url),
@@ -219,6 +230,12 @@ final class GooseApp {
             windowHeight: meme.outerHeight
         )
         meme.place(x: origin.x, y: origin.y)
+    }
+
+    /// A meme the human clicks or drags jumps to the top of the always-on-top band;
+    /// lift the goose back over it, as on the Mac.
+    func memeRestacked() {
+        goose.raise()
     }
 
     func paintMeme(_ window: HWND) {
