@@ -46,12 +46,6 @@ public enum FootprintStamp {
         return rects
     }
 
-    /// The patch a print can touch, for repainting only what changed.
-    public static func bounds(x: Int, y: Int, pixel: Int) -> PixelRect {
-        let reach = max(pixel, 1) * 10
-        return PixelRect(x: x - reach, y: y - reach, width: reach * 2, height: reach * 2)
-    }
-
     static func snap(_ value: Int, to grid: Int) -> Int {
         guard grid > 1 else { return value }
         // Floor division, so negative coordinates snap the same way as positive ones.

@@ -18,7 +18,6 @@ let wsExNoActivate: DWORD = 0x0800_0000
 
 let wmDestroy: UINT = 0x0002
 let wmPaint: UINT = 0x000F
-let wmClose: UINT = 0x0010
 let wmNull: UINT = 0x0000
 let wmTimer: UINT = 0x0113
 let wmWindowPosChanged: UINT = 0x0047
@@ -38,7 +37,6 @@ let swpNoSize: UINT = 0x0001
 let swpNoMove: UINT = 0x0002
 let swpNoZOrder: UINT = 0x0004
 let swpNoActivate: UINT = 0x0010
-let swpShowWindow: UINT = 0x0040
 
 let ulwAlpha: DWORD = 0x0000_0002
 let acSrcOver: BYTE = 0x00

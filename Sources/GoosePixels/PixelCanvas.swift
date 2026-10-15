@@ -23,7 +23,6 @@ public struct PixelColor: Equatable, Sendable {
     }
 
     public static let white = PixelColor(red: 255, green: 255, blue: 255)
-    public static let clear = PixelColor(red: 0, green: 0, blue: 0, alpha: 0)
 }
 
 /// An image held as premultiplied `0xAARRGGBB` pixels, rows top to bottom.
@@ -207,9 +206,5 @@ public struct PixelRect: Equatable, Sendable {
         let right = min(maxX, other.maxX)
         let bottom = min(maxY, other.maxY)
         return PixelRect(x: left, y: top, width: max(right - left, 0), height: max(bottom - top, 0))
-    }
-
-    public func contains(x px: Int, y py: Int) -> Bool {
-        px >= x && px < maxX && py >= y && py < maxY
     }
 }
