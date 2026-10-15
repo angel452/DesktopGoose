@@ -4,45 +4,53 @@ A goose that lives on your screen. It wanders around, occasionally walks off the
 edge, comes back with muddy feet, tracks prints across everything you are doing,
 drops memes and honks.
 
-Built with Swift + AppKit on the Mac and Swift + Win32 on Windows, sharing one
-goose brain. **No Xcode required** — the Command Line Tools are enough.
+> **Just want the goose?** Go to the
+> [latest Release](https://github.com/angel452/DesktopGoose/releases/latest), download
+> the file for your computer, and follow the steps below. No programming needed.
 
-## Install (no build needed)
+## Install on Windows
 
-1. Download the **DesktopGoose zip** from the
-   [latest Release](https://github.com/angel452/DesktopGoose/releases/latest).
-2. Unzip it and drag **DesktopGoose.app** into your **Applications** folder.
-3. **Double-click it.** The first time, macOS blocks it and says it "could not
-   verify" the app. That is expected — the app is free and self-signed, not
-   paid-notarised. It is not a virus.
-4. Approve it once: open **System Settings → Privacy & Security**, scroll to the
-   bottom, and click **Open Anyway** next to the Desktop Goose message. Confirm with
-   your password or Touch ID.
-5. That is it. From now on it opens like any app — double-click, or **⌘-Space →
-   "Desktop Goose"**.
+1. On the [latest Release](https://github.com/angel452/DesktopGoose/releases/latest),
+   scroll to **Assets** and download **DesktopGoose-windows-…zip**. Do not download
+   "Source code" — that is for programmers. If your browser warns that the file is not
+   commonly downloaded, choose **Keep**.
+2. Open your **Downloads** folder, **right-click** the zip and choose **Extract All…**,
+   then click **Extract**. (Do not just double-click the zip — the goose cannot start
+   from inside it.)
+3. In the folder that opens, double-click **DesktopGoose**.
+4. A blue window may say **"Windows protected your PC"**. Click **More info**, then
+   **Run anyway**. It only asks the first time. The app is free and safe; it just is
+   not signed with a paid certificate.
+5. Done! The goose has no window: it lives next to the clock (click the **^** arrow if
+   you cannot see it). Click its icon to take a break, shoo the memes, or quit.
 
-> Prefer the Terminal? One line does the same as steps 3–4:
+## Install on Mac
+
+1. On the [latest Release](https://github.com/angel452/DesktopGoose/releases/latest),
+   scroll to **Assets** and download **DesktopGoose-…zip** (the one without "windows"
+   in the name). Do not download "Source code".
+2. Open your **Downloads** folder and double-click the zip. A **DesktopGoose** app
+   appears (Safari may already have done this for you).
+3. Drag **DesktopGoose** into your **Applications** folder.
+4. Open **Applications** and double-click **DesktopGoose**. The first time, macOS says
+   it could not verify the app. That is expected — the app is free, just not paid-
+   notarised by Apple. Click **Done** — **not** "Move to Trash".
+5. Open the  menu → **System Settings** → **Privacy & Security**. Scroll to the bottom
+   and click **Open Anyway** next to the Desktop Goose message. Enter your password
+   (or use Touch ID) and click **Open Anyway** once more. You only do this once.
+6. Done! From now on it opens like any app. The goose has no window: it lives in the
+   menu bar as 🪿 — click it to take a break, shoo the memes, or quit. Works on Apple
+   Silicon and Intel Macs with macOS 14 or newer.
+
+> Comfortable with the Terminal? One line does the same as steps 4–5:
 > ```sh
 > xattr -dr com.apple.quarantine /Applications/DesktopGoose.app
 > ```
 
-The goose runs with **no terminal open** and no window. It lives in the menu bar as
-🪿 — click it to quit. The download is universal, so it runs on both Apple Silicon
-and Intel Macs.
+## Building it yourself
 
-Prefer to build it yourself? Read on.
-
-## Install on Windows (no build needed)
-
-1. Download the **DesktopGoose-windows zip** from the
-   [latest Release](https://github.com/angel452/DesktopGoose/releases/latest).
-2. Unzip it anywhere and keep the folder together — the exe needs the `.dll` files
-   and the `Assets` folder next to it.
-3. Double-click **DesktopGoose.exe**. If SmartScreen says "Windows protected your
-   PC", click **More info → Run anyway**. It only asks once; the app is free and
-   unsigned, not a virus.
-4. The goose lives in the **system tray** next to the clock (click the `^` arrow if
-   it is hidden). Click it to take a break, shoo the memes, or quit.
+Built with Swift + AppKit on the Mac and Swift + Win32 on Windows, sharing one
+goose brain. **No Xcode required** — the Command Line Tools are enough.
 
 The Windows build is made by CI on `windows-latest` (a Mac cannot compile it): every
 push runs `.github/workflows/ci.yml`, which builds, tests and uploads a ready-to-run
