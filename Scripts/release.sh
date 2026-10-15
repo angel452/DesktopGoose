@@ -64,17 +64,44 @@ ditto -c -k --norsrc --noextattr --keepParent "$ROOT/build/windows/DesktopGoose"
 echo "    $WIN_ZIP"
 
 echo "==> Publishing GitHub Release $TAG"
+# Written for people who have never used GitHub: exact file and button names, one
+# recipe per system, and nothing technical above the fold.
+NOTES="$(cat <<EOF
+## Which file do I download?
+
+Scroll down to **Assets** and click the file for your computer. **Do not** download "Source code" — that is for programmers.
+
+| Your computer | Download this file |
+|---|---|
+| 🪟 Windows | **DesktopGoose-windows-${VERSION}.zip** |
+| 🍎 Mac | **DesktopGoose-${VERSION}.zip** |
+
+## 🪟 Windows
+
+1. Download **DesktopGoose-windows-${VERSION}.zip**. If your browser warns that the file is not commonly downloaded, choose **Keep**.
+2. Open your **Downloads** folder, **right-click** the zip and choose **Extract All…**, then click **Extract**. (Do not just double-click the zip — the goose cannot start from inside it.)
+3. In the folder that opens, double-click **DesktopGoose**.
+4. A blue window may say **"Windows protected your PC"**. Click **More info**, then **Run anyway**. It only asks the first time. The app is free and safe; it just is not signed with a paid certificate.
+5. Done! The goose is on your screen. To quit, find the goose icon next to the clock (click the **^** arrow if you cannot see it), click it, and choose **Quit Desktop Goose**.
+
+## 🍎 Mac
+
+1. Download **DesktopGoose-${VERSION}.zip**.
+2. Open your **Downloads** folder and double-click the zip. A **DesktopGoose** app appears (Safari may already have done this for you).
+3. Drag **DesktopGoose** into your **Applications** folder.
+4. Open **Applications** and double-click **DesktopGoose**. The first time, macOS says it could not verify the app. Click **Done** — **not** "Move to Trash".
+5. Open the  menu → **System Settings** → **Privacy & Security**. Scroll to the bottom and click **Open Anyway** next to the Desktop Goose message. Enter your password (or use Touch ID) and click **Open Anyway** once more. You only do this once.
+6. Done! The goose is on your screen. To quit, click 🪿 at the top right of the screen and choose **Quit Desktop Goose**.
+
+Works on every Mac with macOS 14 or newer, and on Windows 10 and 11.
+EOF
+)"
+
 # --target pins the tag to the commit the Windows exe was built from; without it a
 # new tag lands on the default branch tip.
 gh release create "$TAG" "$ZIP" "$WIN_ZIP" \
     --target "$COMMIT" \
     --title "Desktop Goose $TAG" \
-    --notes "**Windows:** download **DesktopGoose-windows-${VERSION}.zip**, unzip it anywhere, and double-click **DesktopGoose.exe**. If SmartScreen says \"Windows protected your PC\", click **More info → Run anyway** (once — the app is free and unsigned). The goose lives in the system tray, next to the clock.
-
-**macOS:** download **DesktopGoose-${VERSION}.zip**, unzip, and drag the app to /Applications.
-
-**First launch:** double-click it, then approve it once in **System Settings → Privacy & Security → Open Anyway** (the app is ad-hoc signed, so Gatekeeper asks the first time — the old right-click → Open shortcut was removed in macOS 15). After that, double-click as usual. Prefer the Terminal? \`xattr -dr com.apple.quarantine /Applications/DesktopGoose.app\` does the same.
-
-The goose lives in the menu bar as 🪿 — quit it from there. Universal build: runs on Apple Silicon and Intel."
+    --notes "$NOTES"
 
 echo "==> Published: $TAG"
