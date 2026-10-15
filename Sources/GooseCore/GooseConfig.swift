@@ -1,4 +1,6 @@
+#if canImport(CoreGraphics)
 import CoreGraphics
+#endif
 import Foundation
 
 /// Tuning knobs for the goose's behaviour. All durations are in seconds and all

@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "feat/**"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        run: swift build
+      - name: Test
+        run: swift run GooseCoreTests
+
+  windows:
+    runs-on: windows-latest
+    # A hung toolchain download would otherwise burn the 6-hour default.
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: SwiftyLab/setup-swift@v1.14.1
+        with:
+          swift-version: "6.3.3"
+      - name: Build
+        run: swift build
+      - name: Test
+        run: swift run GooseCoreTests
+      - name: Build release app
+        run: swift build -c release --product DesktopGooseWin
+      # A folder a non-dev can unzip and double-click: the exe, the Swift and C++
+      # runtimes it links against (app-local, so nothing needs installing), and the
+      # assets it reads at launch.
+      - name: Package
+        shell: pwsh
+        run: |
+          $out = "dist/DesktopGoose"
+          New-Item -ItemType Directory -Force $out | Out-Null
+          Copy-Item .build/release/DesktopGooseWin.exe "$out/DesktopGoose.exe"
+          $runtime = Split-Path (where.exe swiftCore.dll | Select-Object -First 1)
+          Copy-Item "$runtime/*.dll" $out
+          foreach ($dll in "vcruntime140.dll", "vcruntime140_1.dll", "msvcp140.dll") {
+            Copy-Item "$env:WINDIR/System32/$dll" $out
+          }
+          Copy-Item -Recurse Assets "$out/Assets"
+          Copy-Item Support/README-Windows.txt "$out/README.txt"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DesktopGoose-windows
+          path: dist

@@ -43,10 +43,35 @@ EOF
     exit 0
 fi
 
+# The Windows build cannot be made on a Mac, so it comes from CI: the green push run
+# for exactly this commit carries it as an artifact. Not a pull_request run, which
+# builds the PR merged into main rather than this commit.
+WIN_ZIP="$ROOT/build/DesktopGoose-windows-${VERSION}.zip"
+COMMIT="$(git -C "$ROOT" rev-parse HEAD)"
+echo "==> Fetching the Windows build from CI for ${COMMIT:0:7}"
+RUN_ID="$(gh run list --workflow CI --commit "$COMMIT" --event push --status success --limit 1 \
+    --json databaseId --jq '.[0].databaseId // empty')"
+if [[ -z "$RUN_ID" ]]; then
+    echo "No successful CI run for ${COMMIT:0:7}. Push, wait for CI to go green, then retry." >&2
+    exit 1
+fi
+rm -rf "$ROOT/build/windows" "$WIN_ZIP"
+gh run download "$RUN_ID" --name DesktopGoose-windows --dir "$ROOT/build/windows"
+# Without --norsrc --noextattr, ditto adds an AppleDouble `._*` twin for every file
+# carrying an extended attribute, and the downloaded files all do. Windows shows
+# those as stray files, among them a fake `._DesktopGoose.exe`.
+ditto -c -k --norsrc --noextattr --keepParent "$ROOT/build/windows/DesktopGoose" "$WIN_ZIP"
+echo "    $WIN_ZIP"
+
 echo "==> Publishing GitHub Release $TAG"
-gh release create "$TAG" "$ZIP" \
+# --target pins the tag to the commit the Windows exe was built from; without it a
+# new tag lands on the default branch tip.
+gh release create "$TAG" "$ZIP" "$WIN_ZIP" \
+    --target "$COMMIT" \
     --title "Desktop Goose $TAG" \
-    --notes "Download **DesktopGoose-${VERSION}.zip**, unzip, and drag the app to /Applications.
+    --notes "**Windows:** download **DesktopGoose-windows-${VERSION}.zip**, unzip it anywhere, and double-click **DesktopGoose.exe**. If SmartScreen says \"Windows protected your PC\", click **More info → Run anyway** (once — the app is free and unsigned). The goose lives in the system tray, next to the clock.
+
+**macOS:** download **DesktopGoose-${VERSION}.zip**, unzip, and drag the app to /Applications.
 
 **First launch:** double-click it, then approve it once in **System Settings → Privacy & Security → Open Anyway** (the app is ad-hoc signed, so Gatekeeper asks the first time — the old right-click → Open shortcut was removed in macOS 15). After that, double-click as usual. Prefer the Terminal? \`xattr -dr com.apple.quarantine /Applications/DesktopGoose.app\` does the same.
 
