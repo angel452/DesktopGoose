@@ -58,7 +58,8 @@ script. Everything, in order:
    middle one).
 
 4. **Commit and push** everything (never `CLAUDE.md` — it is local-only), so the tag
-   the Release creates points at code that is actually on GitHub. **Wait for CI to
+   the Release creates (pinned to the exact commit whose Windows build it attaches)
+   points at code that is actually on GitHub. **Wait for CI to
    go green** on that commit (`gh run watch`) — it builds the Windows zip.
 
 5. **Build, zip, and publish** — one command. The tag must match the version you set
