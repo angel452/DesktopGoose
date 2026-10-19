@@ -211,11 +211,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Shoo the Memes", action: #selector(dismissMemes), keyEquivalent: ""))
         menu.addItem(.separator())
+        menu.addItem(soundMenuItem())
+        menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Quit Desktop Goose", action: #selector(quit), keyEquivalent: "q"))
         for menuItem in menu.items { menuItem.target = self }
 
         item.menu = menu
         statusItem = item
+    }
+
+    /// Sound ▸ Mute / Quiet / Normal / Loud, with a check on the current level.
+    private func soundMenuItem() -> NSMenuItem {
+        let submenu = NSMenu()
+        for level in SoundLevel.allCases {
+            let levelItem = NSMenuItem(title: level.title, action: #selector(chooseSoundLevel(_:)), keyEquivalent: "")
+            levelItem.target = self
+            levelItem.representedObject = level.storedValue
+            levelItem.state = level == sounds.level ? .on : .off
+            submenu.addItem(levelItem)
+        }
+
+        let item = NSMenuItem(title: "Sound", action: nil, keyEquivalent: "")
+        item.submenu = submenu
+        return item
+    }
+
+    @objc private func chooseSoundLevel(_ sender: NSMenuItem) {
+        sounds.level = SoundLevel(storedValue: sender.representedObject as? String)
+        for levelItem in sender.menu?.items ?? [] {
+            levelItem.state = levelItem === sender ? .on : .off
+        }
+        // A sample honk, so the human hears what they just picked.
+        sounds.honk()
     }
 
     @objc private func remindNow() {

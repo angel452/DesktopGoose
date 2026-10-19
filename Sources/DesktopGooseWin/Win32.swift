@@ -60,6 +60,8 @@ let nifTip: UINT = 0x04
 
 let mfString: UINT = 0x0000
 let mfSeparator: UINT = 0x0800
+let mfPopup: UINT = 0x0010
+let mfByCommand: UINT = 0x0000
 let tpmRightButton: UINT = 0x0002
 
 let dtCenter: UINT = 0x0001
@@ -73,7 +75,7 @@ let clearTypeQuality: DWORD = 5
 
 let sndAsync: DWORD = 0x0001
 let sndNoDefault: DWORD = 0x0002
-let sndFilename: DWORD = 0x0002_0000
+let sndMemory: DWORD = 0x0004
 
 /// `HWND_TOPMOST`, a cast in the headers.
 let hwndTopmost = HWND(bitPattern: -1)
