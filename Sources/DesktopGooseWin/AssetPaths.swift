@@ -65,8 +65,8 @@ func nativePath(_ url: URL) -> String {
     }
 }
 
-/// Plays honks from `Assets/Sounds`, falling back to the system beep so the goose is
-/// never silent just because no audio has been added yet.
+/// Plays honks from `Assets/Sounds`. With no sound file the goose stays quiet: the
+/// system beep is the Windows error sound, which reads as an alarm, not a honk.
 final class SoundBank {
     private let honks: [[WCHAR]]
     private var nextIndex = 0
@@ -76,10 +76,7 @@ final class SoundBank {
     }
 
     func honk() {
-        guard !honks.isEmpty else {
-            MessageBeep(0)
-            return
-        }
+        guard !honks.isEmpty else { return }
         let sound = honks[nextIndex % honks.count]
         nextIndex += 1
         // Async, so a honk never stalls the goose; a new one cuts the last short.
