@@ -601,5 +601,6 @@ t.test("every line bank has something to say") {
 }
 
 runPixelTests(t)
+runSoundTests(t)
 
 t.finish()
