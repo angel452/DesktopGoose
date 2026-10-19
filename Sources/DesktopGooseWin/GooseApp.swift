@@ -249,6 +249,14 @@ final class GooseApp {
 
     // MARK: - Tray
 
+    var soundLevel: SoundLevel { sounds.level }
+
+    func choose(_ level: SoundLevel) {
+        sounds.level = level
+        // A sample honk, so the human hears what they just picked.
+        sounds.honk()
+    }
+
     func perform(_ command: TrayCommand) {
         switch command {
         case .remindNow:

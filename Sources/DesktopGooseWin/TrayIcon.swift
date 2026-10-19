@@ -1,3 +1,4 @@
+import GooseCore
 import GoosePixels
 import WinSDK
 
@@ -13,6 +14,18 @@ enum TrayCommand: Int32 {
     case quit = 3
 }
 
+/// The Sound submenu's items take consecutive identifiers from here, one per level.
+let soundCommandBase: Int32 = 10
+
+func soundCommand(_ level: SoundLevel) -> UINT {
+    UINT(soundCommandBase) + UINT(SoundLevel.allCases.firstIndex(of: level) ?? 0)
+}
+
+func soundLevel(forCommand command: Int32) -> SoundLevel? {
+    let index = Int(command - soundCommandBase)
+    return SoundLevel.allCases.indices.contains(index) ? SoundLevel.allCases[index] : nil
+}
+
 /// The hidden window that owns the tray icon and drives the 60 Hz timer.
 let trayProcedure: WNDPROC = { window, message, wParam, lParam in
     switch message {
@@ -22,14 +35,17 @@ let trayProcedure: WNDPROC = { window, message, wParam, lParam in
     case trayCallbackMessage:
         // Without NOTIFYICON_VERSION_4 the mouse message arrives as lParam itself.
         let event = UINT(truncatingIfNeeded: lParam)
-        if event == wmRButtonUp || event == wmLButtonUp || event == wmContextMenu, let window {
-            app?.tray?.showMenu(owner: window)
+        if event == wmRButtonUp || event == wmLButtonUp || event == wmContextMenu, let window, let app {
+            app.tray?.showMenu(owner: window, soundLevel: app.soundLevel)
         }
         return 0
     case wmCommand:
         // A menu pick arrives here; its identifier is the low word of wParam.
-        if let command = TrayCommand(rawValue: Int32(wParam & 0xFFFF)) {
+        let identifier = Int32(wParam & 0xFFFF)
+        if let command = TrayCommand(rawValue: identifier) {
             app?.perform(command)
+        } else if let level = soundLevel(forCommand: identifier) {
+            app?.choose(level)
         }
         return 0
     case wmDestroy:
@@ -80,14 +96,19 @@ final class TrayIcon {
         Shell_NotifyIconW(nimDelete, &data)
     }
 
-    func showMenu(owner: HWND) {
+    func showMenu(owner: HWND, soundLevel: SoundLevel) {
         guard let menu = CreatePopupMenu() else { return }
+        // Destroying the menu destroys the Sound submenu attached to it too.
         defer { DestroyMenu(menu) }
 
         AppendMenuW(menu, mfString, UINT_PTR(TrayCommand.remindNow.rawValue), wide("Take a Break Now"))
         AppendMenuW(menu, mfSeparator, 0, nil)
         AppendMenuW(menu, mfString, UINT_PTR(TrayCommand.shooMemes.rawValue), wide("Shoo the Memes"))
         AppendMenuW(menu, mfSeparator, 0, nil)
+        if let sound = TrayIcon.makeSoundMenu(checking: soundLevel) {
+            AppendMenuW(menu, mfPopup, UINT_PTR(UInt(bitPattern: sound)), wide("Sound"))
+            AppendMenuW(menu, mfSeparator, 0, nil)
+        }
         AppendMenuW(menu, mfString, UINT_PTR(TrayCommand.quit.rawValue), wide("Quit Desktop Goose"))
 
         var cursor = POINT()
@@ -98,6 +119,18 @@ final class TrayIcon {
         // value imports as a Bool in Swift, so TPM_RETURNCMD cannot carry the id.
         TrackPopupMenu(menu, tpmRightButton, cursor.x, cursor.y, 0, owner, nil)
         PostMessageW(owner, wmNull, 0, 0)
+    }
+
+    /// Mute / Quiet / Normal / Loud, with a radio dot on the current level.
+    private static func makeSoundMenu(checking current: SoundLevel) -> HMENU? {
+        guard let submenu = CreatePopupMenu() else { return nil }
+        for level in SoundLevel.allCases {
+            AppendMenuW(submenu, mfString, UINT_PTR(soundCommand(level)), wide(level.title))
+        }
+        let first = soundCommand(SoundLevel.allCases[0])
+        let last = soundCommand(SoundLevel.allCases[SoundLevel.allCases.count - 1])
+        CheckMenuRadioItem(submenu, first, last, soundCommand(current), mfByCommand)
+        return submenu
     }
 
     /// A 32-bit alpha icon from a goose frame, sized for the tray.

@@ -1,4 +1,5 @@
 import Foundation
+import GooseCore
 import GoosePixels
 import WinSDK
 
@@ -67,19 +68,84 @@ func nativePath(_ url: URL) -> String {
 
 /// Plays honks from `Assets/Sounds`. With no sound file the goose stays quiet: the
 /// system beep is the Windows error sound, which reads as an alarm, not a honk.
+///
+/// `PlaySound` has no volume, so each honk is kept in memory already scaled to the
+/// chosen level (see `WaveFile`) — only the goose gets quieter, never the system.
+/// The level is saved under `%APPDATA%\DesktopGoose` and outlives a restart.
 final class SoundBank {
-    private let honks: [[WCHAR]]
+    private let recordings: [[UInt8]]
+    private var honks: [WaveBuffer] = []
     private var nextIndex = 0
 
+    var level: SoundLevel {
+        didSet {
+            prepareHonks()
+            SoundBank.save(level)
+        }
+    }
+
     init() {
-        honks = AssetPaths.soundURLs().map { wide(nativePath($0)) }
+        recordings = AssetPaths.soundURLs().compactMap { url in
+            (try? Data(contentsOf: url)).map { [UInt8]($0) }
+        }
+        level = SoundBank.load()
+        prepareHonks()
     }
 
     func honk() {
-        guard !honks.isEmpty else { return }
+        guard level != .mute, !honks.isEmpty else { return }
         let sound = honks[nextIndex % honks.count]
         nextIndex += 1
         // Async, so a honk never stalls the goose; a new one cuts the last short.
-        PlaySoundW(sound, nil, sndFilename | sndAsync | sndNoDefault)
+        PlaySoundW(sound.name, nil, sndMemory | sndAsync | sndNoDefault)
+    }
+
+    private func prepareHonks() {
+        // An async honk reads straight from its buffer: stop it before freeing one.
+        PlaySoundW(nil, nil, 0)
+        // A wave the scaler cannot read (not 16-bit PCM) still plays, as recorded.
+        honks = recordings.map { WaveBuffer(WaveFile.scaled($0, gain: level.gain) ?? $0) }
+    }
+
+    // MARK: Saved level
+
+    private static var settingsFile: URL? {
+        ProcessInfo.processInfo.environment["APPDATA"].map {
+            URL(fileURLWithPath: $0, isDirectory: true)
+                .appendingPathComponent("DesktopGoose", isDirectory: true)
+                .appendingPathComponent("sound-level.txt")
+        }
+    }
+
+    private static func load() -> SoundLevel {
+        let saved = settingsFile.flatMap { try? String(contentsOf: $0, encoding: .utf8) }
+        return SoundLevel(storedValue: saved?.trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+
+    private static func save(_ level: SoundLevel) {
+        guard let file = settingsFile else { return }
+        try? FileManager.default.createDirectory(
+            at: file.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try? level.storedValue.write(to: file, atomically: true, encoding: .utf8)
+    }
+}
+
+/// A wave file in memory that `PlaySound` can read with `SND_MEMORY`. Its bytes have
+/// a fixed address for as long as it lives, which a Swift array does not promise.
+private final class WaveBuffer {
+    private let bytes: UnsafeMutableRawBufferPointer
+
+    init(_ wave: [UInt8]) {
+        bytes = .allocate(byteCount: wave.count, alignment: 2)
+        bytes.copyBytes(from: wave)
+    }
+
+    deinit { bytes.deallocate() }
+
+    /// With `SND_MEMORY` the "name" parameter is the wave itself.
+    var name: UnsafePointer<WCHAR>? {
+        bytes.baseAddress.map { UnsafePointer($0.assumingMemoryBound(to: WCHAR.self)) }
     }
 }
