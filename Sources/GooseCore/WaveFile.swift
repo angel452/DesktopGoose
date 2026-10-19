@@ -3,7 +3,7 @@
 public enum WaveFile {
     /// A copy of a 16-bit PCM wave with every sample multiplied by `gain`, clamped
     /// to 0...1. Anything else — another encoding, a truncated file, not a wave at
-    /// all — returns nil, and the caller plays nothing rather than noise.
+    /// all — returns nil rather than a guess that would play as noise.
     public static func scaled(_ bytes: [UInt8], gain: Double) -> [UInt8]? {
         guard bytes.count >= 12,
               ascii(bytes, at: 0) == "RIFF",

@@ -297,8 +297,8 @@ open build/preview-sheet.png
 
 - **Memes** — drop `.png` / `.jpg` / `.gif` files into `Assets/Memes`. With the
   folder empty the goose shows a placeholder card instead.
-- **Sounds** — `Assets/Sounds/Goose.wav` is the default honk; drop more `.wav` /
-  `.aiff` / `.mp3` files next to it and the goose takes turns. With the folder empty
+- **Sounds** — `Assets/Sounds/Goose.wav` is the default honk; drop more files next to
+  it and the goose takes turns (`.wav` on Windows; also `.aiff` / `.mp3` on the Mac). With the folder empty
   the Mac falls back to the system "Pop" sound and Windows stays quiet.
 - **Volume** — the **Sound** menu (Mute / Quiet / Normal / Loud) turns only the goose
   down, never the system, and is remembered between launches. On Windows the levels
